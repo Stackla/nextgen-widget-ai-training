@@ -1,0 +1,1490 @@
+Directory structure:
+└── types/
+    ├── Maybe.ts
+    ├── SdkSwiper.ts
+    ├── Widget.ts
+    ├── index.ts
+    ├── loader.ts
+    ├── types.ts
+    ├── widgets.ts
+    ├── components/
+    │   ├── index.ts
+    │   ├── products.component.ts
+    │   ├── share-menu.component.ts
+    │   ├── static.component.ts
+    │   ├── tile-component.ts
+    │   └── ugc.component.ts
+    ├── core/
+    │   ├── config.ts
+    │   ├── index.ts
+    │   ├── placement.ts
+    │   ├── sdk.ts
+    │   ├── template.ts
+    │   ├── tile.ts
+    │   └── widget-request.ts
+    └── services/
+        ├── base.service.ts
+        ├── event.service.ts
+        ├── index.ts
+        ├── tiles.service.ts
+        ├── widget.service.ts
+        └── events/
+            ├── tile-event.ts
+            └── widget-event.ts
+
+================================================
+File: Maybe.ts
+================================================
+export type MaybePromise<T> = Promise<T> | T
+export type Maybe<T> = NonNullable<T> | undefined
+export type MaybeArray<T> = T | T[]
+
+
+
+================================================
+File: SdkSwiper.ts
+================================================
+import { type Swiper } from "swiper"
+import { SwiperOptions } from "swiper/types"
+import { Tile } from "./core"
+
+export type SwiperType = Swiper
+
+export type SwiperMode = "inline" | "expanded" | "cross-sell" | "expanded-product-recs" | "tags"
+
+export type SwiperProps = {
+  id: string
+  widgetSelector: HTMLElement
+  prevButton?: string
+  nextButton?: string
+  mode: SwiperMode
+  paramsOverrides?: SwiperOptions
+  /**
+   * @description
+   * Adds support for additional slides that appear when load more is invoked. Note: not all sliders require this, especially if static.
+   */
+  getSliderTemplate?: (tiles: Tile[]) => JSX.Element[]
+}
+
+export type SwiperData = {
+  instance?: Swiper
+  perView?: number | "auto"
+  isLoading?: boolean
+  pageIndex: number
+  muted?: boolean
+}
+
+export type SdkSwiper = {
+  [id: string]: SwiperData | undefined
+}
+
+
+
+================================================
+File: Widget.ts
+================================================
+export type SharedWidgetOptions = {
+  customCSS: string | null
+  customJS: string | null
+  widgetOptions: WidgetOptions & {
+    plugins?: Record<
+      string,
+      {
+        config: Record<string, never>
+      }
+    >
+  }
+  guid?: string
+  filterId: number | null
+  enabled: boolean
+}
+
+export type WidgetOptions = {
+  id?: number
+  widget_type_id?: number
+  stack_id?: number
+  guid?: string
+  css?: string
+  filter_id: string
+  enabled: boolean
+  processing_assets?: number
+  custom_css?: string
+  lightbox_custom_css?: string
+  source_css?: string
+  lightbox_source_css?: string
+  use_default_css?: number
+  custom_js?: string
+  lightbox_custom_js?: string
+  use_default_js?: number
+  custom_tile?: string
+  external_js?: string
+  created?: string
+  modified?: string
+  tracking_impressions?: number
+  rm_id?: string
+  widgetType?: WidgetType
+  embed_code?: string
+  is_draft?: number
+  draft_id?: string
+  has_content?: number
+  has_samplefilter?: number
+  gen?: number
+  style_name?: string
+  custom_templates?: CustomTemplates
+  assets?: unknown
+  filter_name?: string
+  type?: Type
+  enable_old_widget_styling?: boolean
+  style: Style
+  config: Config
+}
+
+export interface ExpandedTileOptions {
+  apply_custom_sharing_title_on_miss_title?: boolean
+  disable_short_url?: boolean
+  fallback_share_image?: string
+  layout?: string
+  post_comments?: boolean
+  sharing_text?: string
+  sharing_title?: string
+  show_additional_info?: boolean
+  show_caption: boolean
+  show_timestamp: boolean
+  show_comments: boolean
+  show_dislikes: boolean
+  show_likes: boolean
+  show_nav: boolean
+  show_sharing: boolean
+  show_shopspots: boolean
+  show_products: boolean
+  show_tags: boolean
+  show_votes: boolean
+  show_cross_sellers: boolean
+  show_add_to_cart: boolean
+  show_carousel_grouping: boolean
+}
+
+export interface InlineTileOptions {
+  show_comments: boolean
+  show_dislikes: boolean
+  show_likes: boolean
+  show_nav: boolean
+  show_sharing: boolean
+  show_shopspots: boolean
+  show_tags: boolean
+  show_votes: boolean
+  show_timestamp: boolean
+  show_caption: boolean
+  show_products: boolean
+  show_add_to_cart: boolean
+  show_inline_tiles: boolean
+  show_carousel: boolean
+}
+
+export interface ClaimConfig {
+  show_claim_button: boolean
+  show_claim_button_on_tags: boolean[]
+}
+
+export interface WidgetType {
+  id: number
+  widget_category_id: number
+  name: string
+  style: Partial<string>
+  active: number
+  display_order: number
+  gen: number
+  created: string
+  modified: string
+}
+
+export interface Config {
+  lightbox: ExpandedTileOptions
+  tile_options: InlineTileOptions
+  claim_config?: ClaimConfig
+}
+
+export type Type = {
+  id: number
+  name: string
+  style: string
+}
+
+export type StylePropertyValue = Style[keyof Style]
+
+export interface Style {
+  auto_refresh: string
+  click_through_url: string
+  enable_custom_tiles_per_page: boolean
+  load_more_type: string
+  margin: string
+  name: string
+  plugin_instance_id?: string
+  polling_frequency?: string
+  rows_per_page?: string
+  shopspot_btn_background?: string
+  shopspot_btn_font_color?: string
+  shopspot_btn_font_size?: string
+  cta_btn_background?: string
+  cta_btn_font_color?: string
+  cta_btn_font_size?: string
+  shopspot_icon: string
+  style: string
+  text_tile_background: string
+  text_tile_font_color: string
+  text_tile_font_size: string
+  text_caption_paragraph_font_size: string
+  text_tile_user_handle_font_color: string
+  text_tile_user_handle_font_size: string
+  text_tile_user_name_font_color: string
+  text_tile_user_name_font_size: string
+  text_tile_link_color: string
+  tiles_per_page: string
+  minimal_tiles: string
+  type: string
+  widget_background: string
+  widget_height?: string
+  widget_loading_image?: string
+  unavailable_products_behaviour?: string
+  dynamic_filter: string
+  dynamic_filter_fallback: DynamicFilterFallback
+  inline_tile_size: string
+  inline_tile_border_radius: string
+  expanded_tile_border_radius: string
+  map_content_feed_filter_id?: string
+  // legacy Map widget properties
+  displayMode?: string
+  isScrollZoomDisabled?: boolean
+  providerApiKey?: string
+  providerLayer?: string
+  connectedContentWidgetId?: string
+  defaultBounds?: string
+}
+
+export interface DynamicFilterFallback {
+  category: boolean
+  brand: boolean
+  custom: number
+}
+
+export interface CustomTemplates {
+  layout: Layout
+  tile: Tile
+}
+
+export interface Layout {
+  display_name: string
+  html_id: string
+  mandatory: number
+  use_default_template: number
+  template: string
+  created: string
+  modified: string
+}
+
+export interface Tile {
+  display_name: string
+  html_id: string
+  mandatory: number
+  use_default_template: number
+  template: string
+  created: string
+  modified: string
+}
+
+export type WidgetResponse = {
+  html: string
+  customCSS: string | null
+  customJS: string | null
+  merchantId: string | null
+  stackId: number | null
+  tileCount: number
+  title: string
+} & SharedWidgetOptions
+
+export type ExpandedTileProperty = keyof ExpandedTileOptions
+export type TileOptionsProperty = keyof InlineTileOptions
+export type OptionsProperty = keyof WidgetOptions
+export type StyleOptionsProperty = keyof Style
+export type DynamicFilterFallbackProperty = keyof DynamicFilterFallback
+
+
+
+================================================
+File: index.ts
+================================================
+export * from "./widgets"
+export * from "./types"
+export * from "./components"
+export * from "./core"
+export * from "./services"
+export * from "./SdkSwiper"
+export * from "./loader"
+
+
+
+================================================
+File: loader.ts
+================================================
+import IWidgetRequest from "./core/widget-request"
+import { Callbacks } from "../events"
+import { ExpandedTileOptions, InlineTileOptions, Style, Template } from "./"
+
+export interface Features {
+  /**
+   * @description Show the title of the widget
+   * @default true
+   */
+  showTitle: boolean
+  /**
+   * @description Allow UGC to handle image preloading
+   * @default true
+   */
+  preloadImages: boolean
+  /**
+   * @description Disable the widget if it is not enabled
+   * @default true
+   */
+  disableWidgetIfNotEnabled: boolean
+  /**
+   * @description Automatically add new tiles to the widget
+   * @default true
+   */
+  addNewTilesAutomatically: boolean
+  /**
+   * @description Handle the load more button
+   * @default true
+   */
+  handleLoadMore: boolean
+  /**
+   * @description Hide broken images
+   * @default true
+   */
+  hideBrokenImages: boolean
+  /**
+   * @description Load the expanded tile slider
+   * @default true
+   */
+  loadExpandedTileSlider: boolean
+  /**
+   * @description Load the tile content web component
+   * @default true
+   */
+  loadTileContent: boolean
+  /**
+   * @description Load the timephrase web component
+   * @default true
+   */
+  loadTimephrase: boolean
+  /**
+   * @description Modify default tile size settings
+   */
+  tileSizeSettings?: {
+    small: string
+    medium: string
+    large: string
+  }
+  /**
+   * @description Modify default tile width settings
+   */
+  tileWidthSettings?: {
+    small: string
+    medium: string
+    large: string
+  }
+  /**
+   * @description Add css variables to the placement
+   */
+  cssVariables?: Record<string, string>
+}
+
+interface Extensions {
+  /**
+   * Load the Swiper extension for inline tiles
+   * @default false
+   * */
+  swiper: boolean
+  /**
+   * Load the Masonry extension for inline tiles
+   * @default false
+   * */
+  masonry: boolean
+}
+
+interface CustomTemplate<C> {
+  template?: Template<C>
+}
+
+interface WidgetConfig {
+  style: Partial<Style>
+  expandedTile: Partial<ExpandedTileOptions>
+  inlineTile: Partial<InlineTileOptions>
+  filter: Partial<IWidgetRequest>
+}
+
+type Templates<C> = Record<string, CustomTemplate<C>>
+
+export interface MyWidgetSettings<C> {
+  features?: Partial<Features>
+  callbacks?: Partial<Callbacks>
+  extensions?: Partial<Extensions>
+  templates?: Partial<Templates<C>>
+  config?: Partial<WidgetConfig>
+}
+
+export interface EnforcedWidgetSettings<C> extends Required<MyWidgetSettings<C>> {
+  features: Features
+  callbacks: Callbacks
+  extensions: Extensions
+}
+
+
+
+================================================
+File: types.ts
+================================================
+import { type ISdk } from "./core/sdk"
+export type MaybePromise<T> = Promise<T> | T
+export type Maybe<T> = NonNullable<T> | undefined
+export type MaybeArray<T> = T | T[]
+
+type HTMLResult = string | HTMLElement
+
+// @TODO fix any type usage
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RenderHTML = (sdk: ISdk, component?: any) => MaybePromise<HTMLResult>
+
+export type AnalyticsOptions = {
+  domains: string[]
+  trackingIds: string | string[]
+  selectedTrackingId: string | string[]
+}
+
+export type Analytics = AnalyticsOptions & {
+  track?: (event: string, data: Record<string, unknown>) => void
+}
+
+export type Sdk = ISdk
+
+
+
+================================================
+File: widgets.ts
+================================================
+export type SharedWidgetOptions = {
+  customCSS: string | null
+  customJS: string | null
+  widgetOptions: WidgetOptions & {
+    plugins?: Record<
+      string,
+      {
+        config: Record<string, never>
+      }
+    >
+  }
+  guid?: string
+  filterId: number | null
+  enabled: boolean
+}
+
+export type WidgetOptions = {
+  id?: number
+  widget_type_id?: number
+  stack_id?: number
+  guid?: string
+  css?: string
+  filter_id: string
+  enabled: boolean
+  processing_assets?: number
+  custom_css?: string
+  lightbox_custom_css?: string
+  source_css?: string
+  lightbox_source_css?: string
+  use_default_css?: number
+  custom_js?: string
+  lightbox_custom_js?: string
+  use_default_js?: number
+  custom_tile?: string
+  external_js?: string
+  created?: string
+  modified?: string
+  tracking_impressions?: number
+  rm_id?: string
+  widgetType?: WidgetType
+  embed_code?: string
+  is_draft?: number
+  draft_id?: string
+  has_content?: number
+  has_samplefilter?: number
+  gen?: number
+  style_name?: string
+  custom_templates?: CustomTemplates
+  assets?: unknown
+  filter_name?: string
+  type?: Type
+  enable_old_widget_styling?: boolean
+  // Blank Canvas means that some of the options are not set
+  style?: Style
+  config?: Config
+  google_ads?: GoogleAdsConfig
+}
+
+export interface ExpandedTileOptions {
+  apply_custom_sharing_title_on_miss_title?: boolean
+  disable_short_url?: boolean
+  fallback_share_image?: string
+  layout?: string
+  post_comments?: boolean
+  sharing_text?: string
+  sharing_title?: string
+  show_additional_info?: boolean
+  show_caption: boolean
+  show_timestamp: boolean
+  show_comments?: boolean
+  show_dislikes?: boolean
+  show_likes?: boolean
+  show_nav: boolean
+  show_sharing: boolean
+  show_shopspots: boolean
+  show_products: boolean
+  show_tags: boolean
+  show_votes?: boolean
+  show_cross_sellers: boolean
+  show_add_to_cart: boolean
+  show_carousel_grouping: boolean
+}
+
+export interface InlineTileOptions {
+  show_comments?: boolean
+  show_dislikes?: boolean
+  show_likes?: boolean
+  show_nav: boolean
+  show_sharing: boolean
+  show_shopspots: boolean
+  show_tags: boolean
+  show_votes?: boolean
+  show_timestamp: boolean
+  show_caption: boolean
+  show_products: boolean
+  show_add_to_cart: boolean
+  auto_play_video: boolean
+  show_inline_tiles: boolean
+  show_carousel: boolean
+}
+
+export interface ClaimConfig {
+  show_claim_button: boolean
+  show_claim_button_on_tags: boolean[]
+}
+
+export interface WidgetType {
+  id: number
+  widget_category_id: number
+  name: string
+  style: Partial<string>
+  active: number
+  display_order: number
+  gen: number
+  created: string
+  modified: string
+}
+
+export interface Config {
+  lightbox: ExpandedTileOptions
+  tile_options: InlineTileOptions
+  claim_config?: ClaimConfig
+}
+
+export type Type = {
+  id: number
+  name: string
+  style: string
+}
+
+export type StylePropertyValue = Style[keyof Style]
+
+export interface Style {
+  auto_refresh: string
+  click_through_url: string
+  enable_custom_tiles_per_page: boolean
+  load_more_type: "scroll" | "button" | "static"
+  margin: string
+  name: string
+  plugin_instance_id?: string
+  polling_frequency?: string
+  rows_per_page?: string
+  shopspot_btn_background?: string
+  shopspot_btn_font_color?: string
+  shopspot_btn_font_size?: string
+  cta_btn_background?: string
+  cta_btn_font_color?: string
+  cta_btn_font_size?: string
+  shopspot_icon: string
+  style?: string
+  text_tile_background: string
+  text_tile_font_color: string
+  text_tile_font_size: string
+  text_caption_paragraph_font_size?: string
+  text_tile_user_handle_font_color: string
+  text_tile_user_handle_font_size: string
+  text_tile_user_name_font_color: string
+  text_tile_user_name_font_size: string
+  text_tile_link_color: string
+  tile_background?: string
+  tiles_per_page?: string
+  minimal_tiles: string
+  type?: string
+  widget_background: string
+  widget_height?: string
+  widget_loading_image?: string
+  unavailable_products_behaviour?: "always_show" | "always_hide" | "hide_if_all_unavailable"
+  dynamic_filter?: string
+  dynamic_filter_fallback?: DynamicFilterFallback
+  inline_tile_size: string
+  inline_tile_border_radius: string
+  inline_tile_margin?: string
+  expanded_tile_border_radius: string
+  tile_tag_background?: string
+  map_content_feed_filter_id?: string
+  map_content_feed_filter_name?: string
+  displayMode?: string
+  isScrollZoomDisabled?: boolean
+  providerApiKey?: string
+  providerLayer?: string
+  connectedContentWidgetId?: string
+  defaultBounds?: string
+  pinColor?: string
+  pinTextColor?: string
+}
+
+export interface DynamicFilterFallback {
+  category: boolean
+  brand: boolean
+  custom: number
+}
+
+export interface CustomTemplates {
+  layout: Layout
+  tile: TileInfo
+}
+
+export interface Layout {
+  display_name: string
+  html_id: string
+  mandatory: number
+  use_default_template: number
+  template: string
+  created: string
+  modified: string
+}
+
+export interface TileInfo {
+  display_name: string
+  html_id: string
+  mandatory: number
+  use_default_template: number
+  template: string
+  created: string
+  modified: string
+}
+
+export type WidgetResponse = {
+  html: string
+  customCSS: string | null
+  customJS: string | null
+  merchantId: string | null
+  stackId: number | null
+  tileCount: number
+  title: string
+} & SharedWidgetOptions
+
+type GATrackingEventProperties = {
+  load: boolean
+  tileExpand: boolean
+  pinClick: boolean
+  userClick: boolean
+  shareClick: boolean
+  moreLoad: boolean
+  shopspotFlyoutExpand: boolean
+  productActionClick: boolean
+  impression: boolean
+  tileHover: boolean
+  emailTileLoad: boolean
+  emailTileClick: boolean
+  likeClick: boolean
+  dislikeClick: boolean
+  voteClick: boolean
+}
+export interface GATrackingInstance {
+  propertyId: string
+  events: GATrackingEventProperties
+  nonInteractionEvents: GATrackingEventProperties
+  categoryName: string
+  enabledCustomCategoryName: boolean
+  eventLabel: string | "default"
+  trackingId: string
+  isOverridden: boolean
+  isDisabled: boolean
+  isActive: boolean
+  widgetName: string
+  widgetId: number
+  accountId: string
+  dataStreamId: string
+  domainName: string
+  trackingStatus: boolean
+}
+export interface GoogleAdsConfig {
+  isEnabled: boolean
+  isOverridden: boolean
+  ad_unit_id: string
+  ad_zone: string
+  ad_tag_id: string
+  ad_default_slug: string
+  ad_unit_width: string
+  ad_unit_height: string
+  position: string
+}
+
+export type ExpandedTileProperty = keyof ExpandedTileOptions
+export type TileOptionsProperty = keyof InlineTileOptions
+export type OptionsProperty = keyof WidgetOptions
+export type StyleOptionsProperty = keyof Style
+export type DynamicFilterFallbackProperty = keyof DynamicFilterFallback
+export type GATrackingInstanceProperty = keyof GATrackingInstance
+export type GoogleAdsConfigProperty = keyof GoogleAdsConfig
+
+
+
+================================================
+File: components/index.ts
+================================================
+export * from "./ugc.component"
+export * from "./products.component"
+export * from "./share-menu.component"
+export * from "./static.component"
+export * from "./tile-component"
+
+
+
+================================================
+File: components/products.component.ts
+================================================
+import { TagExtended } from "../"
+import { IStaticComponent } from "./static.component"
+
+export interface IProductsComponent extends IStaticComponent {
+  registerEvents(): void
+  clearListeners(): void
+  refreshEvents(): void
+  disconnectedCallback(): void
+  connectedCallback(): Promise<void>
+  loadNostoExternalScript(): Promise<void>
+  initiateNosto(products: TagExtended[]): Promise<TagExtended[]>
+  loadProductRecommendation(): Promise<void>
+  render(): Promise<void>
+}
+
+
+
+================================================
+File: components/share-menu.component.ts
+================================================
+import { Tile } from "../core"
+
+export interface IShareMenuComponent {
+  theme: string
+  connectedCallback(): Promise<void>
+  render(): Promise<void>
+  tile: Tile
+  shouldRender: boolean
+  registerListener(): void
+}
+
+
+
+================================================
+File: components/static.component.ts
+================================================
+import { IPlacement, ISdk } from "../core"
+import { IEventService, ITilesService, IWidgetService } from "../services"
+import { RenderHTML } from "../types"
+
+export interface IStaticComponent {
+  renderHTML: RenderHTML
+  visible: boolean
+  componentName: string
+  widgetComponentSelector: string
+
+  getTileId(): string
+  getEvents(): IEventService
+  waitForGlobals(): Promise<void>
+  setRenderHTML(renderHTML: RenderHTML): void
+  setVisible(draw: boolean): this
+  getCSSWithGlobalUrls(): string[]
+  render<T>(component?: T): Promise<void>
+  getSdk(): ISdk
+  connectedCallback(): Promise<void>
+  getWidgetService(): IWidgetService
+  getPlacement(): IPlacement
+  getTilesService(): ITilesService
+}
+
+
+
+================================================
+File: components/tile-component.ts
+================================================
+import { IStaticComponent } from "./static.component"
+
+export interface ITileContentComponent extends IStaticComponent {
+  mode: string
+  context: string
+  trimDescription: boolean
+  sourceId: string
+  renderConfig: {
+    renderUserInfo: boolean
+    renderAvatarImage: boolean
+    renderUserTitle: boolean
+    renderDescription: boolean
+    renderCaption: boolean
+    renderTimephrase: boolean
+    renderShareMenu: boolean
+  }
+  connectedCallback(): Promise<void>
+  disconnectedCallback(): void
+  render(): Promise<void>
+  initTrimHandler(captionElement: HTMLDivElement): void
+  registerResizeObserver(captionElement: HTMLDivElement, callback: (ele: HTMLDivElement) => void): void
+  supportsLineClamp(): boolean
+  trimeMessage(captionElement: HTMLDivElement): void
+  calculateClampLines(captionElement: HTMLDivElement): void
+  getLineHeight(captionElement: HTMLDivElement): number
+}
+
+
+
+================================================
+File: components/ugc.component.ts
+================================================
+import { IPlacement } from "../core/placement"
+import { IWidgetService } from "../services"
+
+export interface IUgcComponent extends HTMLElement {
+  placement?: IPlacement
+  getShadowRoot(): ShadowRoot
+  getPlacement(): IPlacement
+  getWidgetService(): IWidgetService
+}
+
+
+
+================================================
+File: core/config.ts
+================================================
+import { Config, ExpandedTileOptions, InlineTileOptions, Style, WidgetOptions, WidgetResponse } from "../../"
+
+export interface OptionsWithDefaults {
+  style: Style
+  config: Config
+}
+
+export interface StyleDefaults {
+  getStyleDefaults(): Style
+}
+
+export interface ConfigDefaults {
+  getConfigDefaults(): Config
+}
+
+export interface OptionsWithDefaultsFunction {
+  getOptionsWithDefaults(widgetOptions: WidgetOptions): OptionsWithDefaults
+}
+
+export interface ConfigManager {
+  updateInlineTileOptions: (mutatedInlineTileOptions: Partial<InlineTileOptions>) => void
+  updateExpandedTileOptions: (mutatedExpandedTileOptions: Partial<ExpandedTileOptions>) => void
+  updateWidgetStyle: (mutatedStyle: Partial<Style>) => void
+  getConfig: () => Config
+  getWidgetStyle: () => Style
+  getClaimConfig: () => Config["claim_config"]
+  getInlineTileConfig: () => InlineTileOptions
+  getExpandedTileConfig: () => ExpandedTileOptions
+  isWidgetEnabled: () => boolean
+  getTileCount: () => number
+}
+
+export interface ConfigManagerFunction {
+  ConfigManager(widgetContainer: WidgetResponse): ConfigManager
+}
+
+
+
+================================================
+File: core/index.ts
+================================================
+export * from "./placement"
+export * from "./sdk"
+export * from "./tile"
+export * from "./widget-request"
+
+
+
+================================================
+File: core/placement.ts
+================================================
+import { ITransformedWidgetRequest } from "./widget-request"
+import { IUgcComponent } from "../components/ugc.component"
+import { ITilesService } from "../services/tiles.service"
+import { IEventService } from "../services/event.service"
+import { Template } from "../"
+import { WidgetResponse } from "../widgets"
+
+export interface IPlacement {
+  readonly selector: string
+  readonly widgetContainer: WidgetResponse
+  readonly widgetRequest: ITransformedWidgetRequest
+  ugcComponent?: IUgcComponent
+  tiles?: ITilesService
+  sharedCssStyles: unknown
+  custom: unknown
+  events?: IEventService
+  loadedComponents: string[]
+
+  attachServices(): void
+  getStateFromGlobal(): unknown
+  getEvents(): IEventService
+  getLoadedComponents(): string[]
+  addLoadedComponent(component: string): void
+  addLoadedComponents(components: string[]): void
+  getSelector(): string
+  getWidgetId(): string
+  getNodeName(): string
+  getWidgetContainer(): WidgetResponse
+  updateFilterId(filterId: string): void
+  getPluginsSettings(): Record<string, { config: Record<string, never> }>
+  getElement(): HTMLElement
+  attachUGC(): void
+  loadComponents(): Promise<void>
+  getTilesService(): ITilesService
+  getAllTilesInDom(): NodeListOf<HTMLElement>
+  getShadowRoot(): ShadowRoot
+  querySelector<T extends Element = HTMLElement>(className: string): T
+  querySelectorAll<T extends Element = HTMLElement>(className: string): NodeListOf<T>
+  appendModuleScript(src: string): Promise<unknown>
+  getRootCSSImports(): string[]
+  setRootCSSImports(content: string[]): void
+  getCustomStyles(component: string): string[]
+  setCustomStyles(component: string, content: string): void
+  getWidgetCustomStyles(): string[]
+  setWidgetCustomStyles(content: string): void
+  hasSharedStyles(componentName: string): boolean
+  setSharedCssCustomStyles(key: string, content: string, componentNames: string[]): void
+  getSharedCssStyleSheets(componentName: string): CSSStyleSheet[]
+  getCustomTemplate<C>(component: string): Template<C>
+  setCustomTemplate<C>(component: string, template: Template<C>): void
+  injectStaticComponentStyle(name: string, styles: string): void
+}
+
+
+
+================================================
+File: core/sdk.ts
+================================================
+import { EventMapping, EventName } from "../../events"
+import { ClaimConfig, ExpandedTileOptions, InlineTileOptions, Style, WidgetOptions, WidgetResponse } from "../widgets"
+import { Content, Hotspot, Product, Tile } from "./tile"
+
+export type Template<C> = (sdk: ISdk, component?: C) => string | HTMLElement
+
+export interface ISdk {
+  querySelector<T extends Element = HTMLElement>(selector: string): T
+  querySelectorAll<T extends Element = HTMLElement>(selector: string): NodeListOf<T>
+  getEmittedEvents(): EventName[]
+  getRegisteredEvents(): EventName[]
+  addEventListener<T extends EventName>(
+    event: T,
+    callback: (event: EventMapping[T]) => void,
+    htmlSelector?: NodeListOf<Element> | Element
+  ): void
+  triggerEvent<T extends EventName>(event: T, data?: object): void
+  getWidgetContainer(): WidgetResponse
+  getWidgetOptions(): WidgetOptions & {
+    plugins?: Record<string, { config: Record<string, never> }>
+  }
+  addLoadedComponents(components: string[]): void
+  getLoadedComponents(): string[]
+  isComponentLoaded(component: string): boolean
+  addWidgetCustomStyles(content: string): void
+  addSharedCssCustomStyles(key: string, content: string, componentNames: string[]): void
+  addCSSImportUrl(url: string): Promise<void>
+  addCSSToComponent(css: string, componentName: string): void
+  addTemplateToComponent<C>(template: Template<C>, componentName: string): void
+  setState<T>(key: string, value: T): void
+  setTile(tile: Tile): void
+  getState<T>(key: string): T
+  getNodeId(): string | undefined
+  loadTemplate(templateType: string): Promise<void>
+  getExpandedTileConfig(): ExpandedTileOptions
+  getInlineTileConfig(): InlineTileOptions
+  getClaimTileConfig(): ClaimConfig | undefined
+  getStyleConfig(): Style
+  waitForTile(tileId: string, counter?: number): Promise<Tile | undefined>
+  updateWidgetStyle(mutatedStyle: Partial<Style>): void
+  updateInlineTileOptions(mutatedInlineTileOptions: Partial<InlineTileOptions>): void
+  updateExpandedTileOptions(mutatedExpandedTileOptions: Partial<ExpandedTileOptions>): void
+  setHideBrokenTiles(hideBrokenTiles: boolean): void
+  setPreloadImages(preloadImages: boolean): void
+  setMediaType(mediaType: "video" | "image"): void
+  getWidgetId(): string
+  getTiles(): Tile[]
+  getTile(): Tile | undefined
+  enableAutoAddNewTiles(): void
+  getShadowRoot(): ShadowRoot
+  getTileById(tileId: string): Tile | undefined
+  getElement: () => HTMLElement | undefined
+  setVisibleTilesCount(visibleTilesCount: number): void
+  loadTilesUntilVisibleTilesCount(): Promise<void>
+  hasMoreTiles(): boolean
+  getSelectedProduct(): Product | undefined
+  searchTiles(query: string, clearExistingTiles: boolean): void
+  openExpandedTiles(tileId: string): void
+  closeExpandedTiles(): void
+  getShopspotsFromTile(tileId: string): Promise<Hotspot[]>
+  getFirstProductInTile(tile: Tile): Product | undefined
+  isPaginationEnabled(): boolean
+  isScrollWidget(): boolean
+  getProductTagsFromTile(tile: Tile): Product[]
+  getContentTagsFromTile(tile: Tile): Content[]
+}
+
+
+
+================================================
+File: core/template.ts
+================================================
+export interface ITemplateService {
+  loadTemplate(node: string | undefined, root: ShadowRoot | HTMLElement, templateType: string): Promise<unknown>
+  getGlobalCSSTemplate(node: string | undefined, templateType: string): string
+}
+
+
+
+================================================
+File: core/tile.ts
+================================================
+interface Variant {
+  id: string
+  availability: string
+  brand: string
+  condition: string
+  description: string
+  google_product_category: string
+  group: string
+  image_link: string
+  item_group_id: string
+  link: string
+  price: string
+  title: string
+  via_feed: number | null
+}
+
+export interface Video {
+  standard_resolution: {
+    url: string
+  }
+}
+
+export interface VideoFile {
+  url: string
+  mime: string
+  size: number
+  width: number
+  height: number
+  duration: number
+}
+
+export interface TagExtended {
+  active?: boolean
+  auto_apply?: boolean
+  availability: number
+  availability_status?: string
+  brand?: string
+  categories?: string
+  created_at?: string
+  cta_text?: string
+  currency?: string
+  custom_fields?: string
+  custom_slug?: string
+  custom_url: string
+  description?: string
+  ext_product_id?: string
+  id: string
+  image?: string
+  image_medium_height?: string
+  image_medium_url?: string
+  image_medium_width?: string
+  image_small_height?: string
+  image_small_url?: string
+  image_small_width?: string
+  ingested_at?: string
+  is_from_nosto?: number
+  lock_cta_text?: number
+  merchant_id?: string
+  migrated_from_variant?: number
+  original_price?: string
+  price: string
+  priority?: string
+  processed?: number
+  publicly_visible?: number
+  rm_id?: string
+  slug?: string
+  stack_id?: number
+  system_tag?: number
+  is_cross_seller: boolean
+  tag: string
+  tag_sanitized?: string
+  target?: string
+  tracking_tile_clicks?: string
+  tracking_tile_impressions?: string
+  type: string
+  ugc_update_required?: string
+  ugc_update_required_created_at?: string
+  updated_at?: string
+  variant?: Variant[]
+  product_link_attribute?: string
+}
+
+export type Tile = {
+  id: string
+  preloaded?: boolean
+  _id?: { $id: string }
+  carousel: number
+  created_at: number
+  disabled: boolean
+  hotspots?: Hotspot[]
+  image: string
+  avatar: string
+  image_expire_at: number
+  lang_detection_type?: string
+  media: string
+  message: string
+  name: null | string
+  original_url: string
+  original_link: string
+  page_post: boolean
+  parent_url: string
+  queued: boolean
+  reviewed: boolean
+  scheduled: boolean
+  score: number
+  source: string
+  source_id: string
+  source_created_at: number
+  source_unique_id: string
+  stackla_sentiment_score: number
+  status: string
+  tags: string[]
+  tags_extended?: TagExtended[]
+  terms: string[]
+  updated_at: number
+  user: string
+  video?: Video
+  video_files: VideoFile[]
+  original_image_url: string
+  embed_url: string
+  youtube_id: string
+  title: string
+  full_embed_html: string
+  attrs?: string[]
+  image_thumbnail_url?: string
+  image_l?: string
+  image_s?: string
+  instagram_id?: string
+  instagram_media_type?: string
+  carousel_children?: CarouselChild[]
+  [key: string]: undefined | object | null | string | string[] | number | number[] | boolean | TagExtended[]
+}
+
+export type CarouselChild = {
+  _id?: { $id: string }
+  id: string
+  media: string
+  carousel: number
+  video?: Video
+  image?: string
+  image_thumbnail_url?: string
+  image_l?: string
+  image_s?: string
+  instagram_id?: string
+  instagram_media_type?: string
+  tags: string[]
+  tags_extended?: TagExtended[]
+}
+
+export type Hotspot = {
+  id: number
+  x: number
+  y: number
+  width: number
+  height: number
+  type: string
+  custom_url: string
+  product_link_attribute: string
+  tag: TagExtended
+  coords: number[]
+}
+
+export type Product = TagExtended & {
+  type: "product"
+}
+
+export type Content = TagExtended & {
+  type: "content"
+}
+
+
+
+================================================
+File: core/widget-request.ts
+================================================
+type Template = {
+  display_name: string
+  html_id: string
+  mandatory: number
+  use_default_template: number
+  template: string
+  created: string
+  modified: string
+}
+
+type Templates = {
+  layout: Template
+  tile: Template
+}
+
+export type Draft = {
+  style?: string
+  config?: string | null
+  css?: string
+  filter_id?: number
+  custom_css?: string
+  lightbox_custom_css?: string
+  source_css?: string
+  lightbox_source_css?: string
+  use_default_css?: number
+  custom_js?: string
+  lightbox_custom_js?: string
+  use_default_js?: number
+  custom_tile?: string
+  external_js?: string
+  draft_id?: string
+  short_name?: string
+  custom_templates?: Templates
+  [key: string]: string | number | undefined | null | Templates | Record<string, never>
+}
+
+export default interface IWidgetRequest {
+  // TODO - Document new properties (draft,visible_tiles_count, uid);
+  // Allow uid if the user wants to differ 2 widgets with the same filter_id (i.e. preview mode)
+  uid?: string
+  visible_tiles_count?: number
+  draft?: Draft
+  hash?: string
+  wid?: string
+  filter_id: number
+  tags?: string
+  tag_group?: string
+  available_products_only?: boolean
+  limit?: number
+  page?: number
+  ttl?: number
+  visible_on?: string
+  domain?: string
+  tags_grouped_as?: string
+  data_tags?: string
+  brand?: string
+  categories?: string
+  fallbacks?: string
+  fallback_filter_id?: number
+  product_link_attribute?: string
+  search?: string
+  geohash?: string
+  tile_id?: string
+  style?: string
+  media?: "image" | "video"
+  exclude?: boolean
+  status?: string
+  filter?: string
+  [key: string]: string | boolean | number | Draft | undefined | null | Templates | Record<string, never>
+}
+
+export interface ITransformedWidgetRequest extends IWidgetRequest {
+  wid: string
+  hash?: string
+}
+
+
+
+================================================
+File: services/base.service.ts
+================================================
+import { IPlacement } from "../core/placement"
+import { IEventService } from "./event.service"
+export declare abstract class IBaseService {
+  protected placement: IPlacement
+  setState(key: string, value: unknown): void
+  getState(key: string): unknown
+  getPlacement(): IPlacement
+  getEvents(): IEventService
+}
+
+
+
+================================================
+File: services/event.service.ts
+================================================
+import { IBaseService } from "./base.service"
+import { EventMapping, EventName } from "../../events"
+
+export interface IEventService extends IBaseService {
+  listenOrFindEvent<T extends EventName>(eventType: T, callback: (event: EventMapping[T]) => void): void
+  removeListeners(listenersForRemoval: EventName[], scope?: string): void
+  addUgcEventListener<T extends EventName>(
+    eventType: T,
+    callback: (event: EventMapping[T]) => void,
+    scope?: string
+  ): void
+  getUniqueSelector(): string
+  dispatchUgcEvent(event: CustomEvent, scope?: string): void
+  getEmittedEvents(): EventName[]
+}
+
+
+
+================================================
+File: services/index.ts
+================================================
+export * from "./base.service"
+export * from "./event.service"
+export * from "./tiles.service"
+export * from "./widget.service"
+export * from "./events/tile-event"
+export * from "./events/widget-event"
+
+
+
+================================================
+File: services/tiles.service.ts
+================================================
+import { Product, TagExtended, Tile, Hotspot } from "../core/tile"
+import { IBaseService } from "./base.service"
+
+export interface ITilesService extends IBaseService {
+  page: number
+  visibleTilesCount: number
+  tiles: Record<string, Tile>
+  trashedTiles: Record<string, boolean>
+  selectedProductId?: string
+  hideBrokenTiles: boolean
+  preloadImages: boolean
+  loadTilesUntilVisibleTilesCount(): Promise<void>
+  getTotalTilesCount(): number
+  enableAutoAddNewTiles(): void
+  disableAutoAddNewTiles(): void
+  setVisibleTilesCount(visibleTilesCount: number): void
+  postRender(): Promise<void>
+  loadMore(limit?: number): Promise<void>
+  hasMorePages(): boolean
+  hasMoreTiles(): boolean
+  getLoadedTilesCount(): number
+  getVisibleTilesInDomCount(): number
+  searchTiles(query: string, clearExistingTiles: boolean): Promise<Tile[] | undefined>
+  fetchAllTiles(): Promise<Tile[]>
+  fetchTile(tileId: string): Promise<Tile>
+  fetchTiles(page?: number, limit?: number): Promise<Tile[] | undefined>
+  setMediaType(mediaType: string): void
+  getPage(): number
+  setTile(tile: Tile): void
+  getTile(tileId?: string): Tile | undefined
+  getProductById(productId: string): Product | undefined
+  getSelectedProduct(): Product | undefined
+  setSelectedProductId(productId: string): void
+  addProducts(products: Product[]): void
+  getShopspotsFromTile(tileId?: string): Promise<Hotspot[]>
+  waitForTile(tileId: string, counter?: number): Promise<Tile | undefined>
+  getFirstProductInTile(tile: Tile): Product | undefined
+  getProductTagsFromTile(tile: Tile): Product[]
+  getTagsExtendedFromTile(tile: Tile): TagExtended[]
+  getIndexOfProductInTile?(tile: Tile, productId: string): number
+  getPreviousProductInTile?(tile: Tile): Product | undefined
+  getNextProductInTile?(tile: Tile): Product | undefined
+}
+
+
+
+================================================
+File: services/widget.service.ts
+================================================
+// widget-service.interface.ts
+
+import { WidgetResponse } from "../widgets"
+import { ISdk, ITransformedWidgetRequest } from "../core"
+import { ITilesService } from "./tiles.service"
+import { IBaseService } from "./base.service"
+
+export interface IWidgetService extends IBaseService {
+  state: Record<string, unknown>
+  tiles: ITilesService | undefined
+  setSdk(sdk: ISdk): void
+  getSdk(): ISdk
+  getWidgetBySelector(selector?: string): IWidgetService
+  init(): Promise<IWidgetService>
+  executeOnLoad(callback: () => void): Promise<void>
+  getTilesService(): ITilesService
+  fetchWidgetFromApi(widgetRequest: ITransformedWidgetRequest): Promise<WidgetResponse>
+  fetchDraftFromApi(widgetRequest: ITransformedWidgetRequest): Promise<WidgetResponse>
+}
+
+
+
+================================================
+File: services/events/tile-event.ts
+================================================
+import { Tile } from "../../core/tile"
+
+export interface ProductTag {
+  id: string
+  ext_product_id: string
+}
+
+export interface ITileEventData {
+  tileData: Tile
+  widgetId: string
+  filterId?: string
+  shareNetwork?: string
+  locationId?: string
+  locationName?: string
+  nostoUgcLocationId?: string
+  nostoUgcLocationName?: string
+  productTag?: ProductTag
+  [key: string]: unknown
+}
+
+
+
+================================================
+File: services/events/widget-event.ts
+================================================
+import { ITileEventData } from "./tile-event"
+
+export interface WidgetData {
+  widgetId: string
+}
+
+export interface IWidgetEvent extends CustomEvent {
+  detail: {
+    data: ITileEventData
+  }
+}
+
+

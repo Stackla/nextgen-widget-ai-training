@@ -1,0 +1,388 @@
+Directory structure:
+└── handlebars/
+    ├── index.ts
+    └── helpers/
+        ├── if-auto-play-video.helper.ts
+        ├── if-has-product-tags.helper.ts
+        ├── if-has-public-tags.helper.ts
+        ├── if-short-video.helper.ts
+        ├── ifequals.helper.ts
+        ├── index.ts
+        ├── join.helper.ts
+        ├── lazy.helper.ts
+        ├── load-icons.helper.ts
+        ├── play-video.helper.ts
+        ├── tile.helper.ts
+        └── __snapshots__/
+
+================================================
+File: index.ts
+================================================
+import Handlebars from "handlebars"
+import type { Tile, WidgetOptions } from "../types"
+
+import { loadIfEqualsHelper, loadJoinHelper, loadLazyHelper } from "./helpers"
+import { loadTileHelper } from "./helpers/tile.helper"
+import { loadIfAutoPlayVideoHelper } from "./helpers/if-auto-play-video.helper"
+import { loadPlayVideoHelper } from "./helpers/play-video.helper"
+import { loadIfShortVideoHelper } from "./helpers/if-short-video.helper"
+import { loadIfHasProductTags } from "./helpers/if-has-product-tags.helper"
+import { loadIfHasPublicTags } from "./helpers/if-has-public-tags.helper"
+import { loadIconsHelper } from "./helpers/load-icons.helper"
+
+export interface HandlebarsPartial {
+  name: string
+  template: string
+}
+
+export async function renderHTMLWithTemplates(
+  tileTemplate: string,
+  layoutTemplate: string,
+  tiles: Tile[],
+  options: WidgetOptions
+) {
+  loadHelpers(Handlebars)
+
+  const hbs = await renderTemplateWithPartials(Handlebars.create(), {
+    name: "tpl-tile",
+    template: tileTemplate
+  })
+
+  const handlebarsTemplate = hbs.compile(layoutTemplate)
+  return handlebarsTemplate({
+    tiles,
+    options
+  })
+}
+
+export async function renderTilesWithTemplate(tileTemplate: string, tiles: Tile[], options: WidgetOptions) {
+  loadHelpers(Handlebars)
+
+  const hbs = await renderTemplateWithPartials(Handlebars.create(), {
+    name: "tpl-tile",
+    template: tileTemplate
+  })
+
+  const handlebarsTemplate = hbs.compile(tileTemplate)
+
+  return tiles.map(tile =>
+    handlebarsTemplate({
+      ...tile,
+      options
+    })
+  )
+}
+
+export function renderTemplateWithPartials(hbs: typeof Handlebars, partial: HandlebarsPartial) {
+  loadHelpers(hbs)
+  hbs.registerPartial(partial.name, partial.template)
+
+  return hbs
+}
+
+export function loadHelpers(hbs: typeof Handlebars) {
+  loadIfEqualsHelper(hbs)
+  loadLazyHelper(hbs)
+  loadJoinHelper(hbs)
+  loadTileHelper(hbs)
+  loadIfAutoPlayVideoHelper(hbs)
+  loadPlayVideoHelper(hbs)
+  loadIfShortVideoHelper(hbs)
+  loadIfHasProductTags(hbs)
+  loadIfHasPublicTags(hbs)
+  loadIconsHelper(hbs)
+}
+
+================================================
+File: helpers/if-auto-play-video.helper.ts
+================================================
+import Handlebars from "handlebars"
+
+export const loadIfAutoPlayVideoHelper = (hbs: typeof Handlebars) => {
+  hbs.registerHelper("ifAutoPlayVideo", function (media, autoPlayVideoEnabled, options) {
+    if (media === "video" && autoPlayVideoEnabled) {
+      return options.fn(this)
+    }
+    return options.inverse(this)
+  })
+}
+
+
+================================================
+File: helpers/if-has-product-tags.helper.ts
+================================================
+import type { TagExtended, Tile } from "../../types"
+import Handlebars from "handlebars"
+
+export const loadIfHasProductTags = (hbs: typeof Handlebars) => {
+  hbs.registerHelper("ifHasProductTags", function (tile: Tile, options) {
+    const tag = tile.tags_extended?.length && tile.tags_extended.find((tag: TagExtended) => tag.type === "product")
+
+    if (tag) {
+      return options.fn(this)
+    }
+
+    return options.inverse(this)
+  })
+}
+
+
+================================================
+File: helpers/if-has-public-tags.helper.ts
+================================================
+import type { TagExtended, Tile } from "../../types"
+import Handlebars from "handlebars"
+
+export const loadIfHasPublicTags = (hbs: typeof Handlebars) => {
+  hbs.registerHelper("ifHasPublicTags", function (tile: Tile, options) {
+    // public tags
+    const tag = tile.tags_extended?.length && tile.tags_extended.find((tag: TagExtended) => tag.publicly_visible)
+
+    if (tag) {
+      return options.fn(this)
+    }
+
+    return options.inverse(this)
+  })
+}
+
+================================================
+File: helpers/if-short-video.helper.ts
+================================================
+import Handlebars from "handlebars"
+
+export const loadIfShortVideoHelper = (hbs: typeof Handlebars) => {
+  hbs.registerHelper("ifShortVideo", function (tile, options) {
+    let isShortVideo = false
+    if (tile.media === "video") {
+      switch (tile.source) {
+        case "instagram": {
+          if (tile.attrs?.includes("instagram.reel")) {
+            isShortVideo = true
+          }
+          break
+        }
+        case "youtube": {
+          if (tile.attrs?.includes("youtube.short")) {
+            isShortVideo = true
+          }
+          break
+        }
+        case "tiktok": {
+          if (tile.attrs?.includes("tiktok.short")) {
+            isShortVideo = true
+          }
+          break
+        }
+      }
+    }
+
+    if (isShortVideo) {
+      return options.fn(this)
+    }
+
+    return options.inverse(this)
+  })
+}
+
+
+
+================================================
+File: helpers/ifequals.helper.ts
+================================================
+import Handlebars from "handlebars"
+
+export const loadIfEqualsHelper = (hbs: typeof Handlebars) => {
+  hbs.registerHelper("ifequals", function (a, b, options) {
+    if (a === b) {
+      return options.fn(this)
+    }
+    return options.inverse(this)
+  })
+}
+
+
+
+
+================================================
+File: helpers/index.ts
+================================================
+export * from "./ifequals.helper"
+export * from "./lazy.helper"
+export * from "./join.helper"
+export * from "./if-has-product-tags.helper"
+
+
+================================================
+File: helpers/join.helper.ts
+================================================
+import Handlebars from "handlebars"
+
+export const loadJoinHelper = (hbs: typeof Handlebars) => {
+  hbs.registerHelper("join", function (...args) {
+    const argsToJoin = args.slice(0, -1)
+    return argsToJoin.join("")
+  })
+}
+
+================================================
+File: helpers/lazy.helper.ts
+================================================
+import Handlebars from "handlebars"
+
+export function loadLazyHelper(hbs: typeof Handlebars) {
+  hbs.registerHelper("lazy", function (url, width, alt) {
+    const escapedUrl = hbs.escapeExpression(url)
+    const escapedAlt = typeof alt == "string" ? hbs.escapeExpression(alt) : ""
+    const escapedWidth = typeof width == "string" ? hbs.escapeExpression(width) : ""
+
+    let imgTag = `<img src="${escapedUrl}" loading="lazy"`
+
+    if (escapedAlt) {
+      imgTag += ` alt="${escapedAlt}"`
+    }
+
+    if (escapedWidth) {
+      imgTag += ` width="${escapedWidth}"`
+    }
+
+    imgTag += " />"
+
+    return new hbs.SafeString(imgTag)
+  })
+}
+
+================================================
+File: helpers/load-icons.helper.ts
+================================================
+import Handlebars from "handlebars"
+import { TagExtended, Tile } from "../../types"
+
+export function getIcons(tile: Tile, variant = "dark", context = "", navigationArrows = "true") {
+  const hasInstagramReel = tile.attrs && tile.attrs.includes("instagram.reel")
+  const hasProductTags =
+    tile.tags_extended && tile.tags_extended.filter((tag: TagExtended) => tag.type === "product").length > 0
+  const isVideo = tile.media === "video"
+  return `<div class="icon-section">
+        <div class="top-section">
+            ${hasInstagramReel ? `<div class="content-icon icon-reel"></div>` : ""}
+            ${hasProductTags ? `<div class="shopping-icon icon-products"></div>` : ""}
+        </div>
+        <div class="center-section">
+            ${isVideo ? `<div class="icon-play"></div>` : ""}
+        </div>
+        <div class="bottom-section">
+            <tile-tags tile-id="${tile.id}" variant="${variant}" mode="swiper" context="${context}" navigation-arrows="${navigationArrows}"></tile-tags>
+            <div class="network-icon icon-${tile.source}"></div>
+            <shopspot-icon tile-id="${tile.id}" />
+        </div>
+    </div>`
+}
+
+export function loadIconsHelper(hbs: typeof Handlebars) {
+  hbs.registerHelper("loadIcons", function (tile, context = "", variant = "dark", navigationArrows = "true") {
+    return new hbs.SafeString(getIcons(tile, variant, context, navigationArrows))
+  })
+}
+
+================================================
+File: helpers/play-video.helper.ts
+================================================
+import Handlebars from "handlebars"
+import { getIcons } from "./load-icons.helper"
+import { Tile } from "../../types"
+
+function getImageTag(tile: Tile, variant: "dark" | "light", context: string, navigationArrows: "true" | "false") {
+  const { id, image } = tile
+
+  return `
+  ${getIcons(tile, variant, context, navigationArrows)}
+  <img class='fallback-image' tile-id="${id}" src="${image}" loading="lazy" width="120"/>
+  `
+}
+
+function getManipulateFunctionString() {
+  return `this.removeAttribute('controls'); 
+  this.muted=true; 
+  this.parentElement.querySelector('.fallback-image').style.display='none'; 
+  this.style.display='flex';
+  this.parentElement.parentElement.parentElement.querySelectorAll('.icon-play').forEach((el) => {
+    el.style.display='none';
+  });
+  `
+}
+
+export function createVideoTag(
+  tile: Tile,
+  variant: "dark" | "light",
+  context: string,
+  navigationArrows: "true" | "false"
+) {
+  const videoUrl = tile?.video?.standard_resolution.url ?? ""
+  const escapedVideoUrl = Handlebars.escapeExpression(videoUrl)
+
+  return `${getImageTag(tile, variant, context, navigationArrows)}<video style="display:none;" reload="metadata" class="video-content" loading="lazy"  
+  oncanplaythrough="${getManipulateFunctionString()}" 
+  controls autoplay muted loop>
+  <source src="${escapedVideoUrl + "#t=0.1"}" type="video/mp4">
+  </video>`
+}
+
+export function loadPlayVideoHelper(hbs: typeof Handlebars) {
+  hbs.registerHelper("playVideo", function (tile, options) {
+    const { variant = "dark", context = "unknown", navigationArrows = "true" } = options
+    let videoTag = ""
+    const source = tile.source
+    const imageTag = getImageTag(tile, variant, context, navigationArrows)
+
+    switch (source) {
+      case "tiktok": {
+        const tiktokId = tile.original_url.split("/")[5].split("?")[0]
+        const videoLink = `https://www.tiktok.com/player/v1/${tiktokId}?autoplay=1&loop=1&controls=0`
+        videoTag =
+          `${imageTag}<iframe` +
+          ` loading="lazy" onload="${getManipulateFunctionString()}" class="video-content" allowfullscreen src="${videoLink}"></iframe>`
+        break
+      }
+      case "youtube": {
+        const youtubeEmbedUrl = tile.embed_url ?? ""
+        const youtubeVideoLink = `//www.youtube.com/embed/${youtubeEmbedUrl}?autoplay=1&mute=1&playlist=${youtubeEmbedUrl}&loop=1&controls=0`
+        videoTag =
+          `${imageTag}<iframe` +
+          ` loading="eager" onload="${getManipulateFunctionString()}" class="video-content" allowfullscreen src="${youtubeVideoLink}"></iframe>`
+        break
+      }
+      default: {
+        videoTag = createVideoTag(tile, variant, context, navigationArrows)
+      }
+    }
+
+    return new hbs.SafeString(videoTag)
+  })
+}
+
+
+================================================
+File: helpers/tile.helper.ts
+================================================
+import Handlebars from "handlebars"
+
+export function loadTileHelper(hbs: typeof Handlebars) {
+  hbs.registerHelper("tile", function (options) {
+    const attrs = Object.keys(options.hash)
+      .filter(item => !["class", "style"].includes(item))
+      .map(function (key) {
+        return key + '="' + options.hash[key] + '"'
+      })
+      .join(" ")
+
+    const attributesContent = attrs ? ` ${attrs} ` : " "
+    const defaultClass = `tile-${this.media} ugc-tile`
+    const customClass = options.hash.class || ""
+    const customStyle = options.hash.style || ""
+    const className = `${defaultClass} ${customClass}`.trim()
+    const style = customStyle.trim()
+
+    return `<div class="${className}"${attributesContent}data-id="${this.id}"${style ? ` style="${style}"` : ""}>${options.fn(this)}</div>`
+  })
+}

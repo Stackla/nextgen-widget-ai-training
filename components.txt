@@ -1,0 +1,4676 @@
+Directory structure:
+└── packages/
+    ├── static.component.ts
+    ├── add-to-cart/
+    │   ├── add-to-cart.component.ts
+    │   ├── add-to-cart.template.tsx
+    │   └── index.ts
+    ├── carousel-grouping/
+    │   ├── carousel-grouping-swiper.loader.ts
+    │   ├── carousel-grouping.component.ts
+    │   ├── carousel-grouping.template.tsx
+    │   └── index.ts
+    ├── expanded-tile/
+    │   ├── expanded-tile.component.ts
+    │   ├── expanded-tile.listeners.ts
+    │   └── index.ts
+    ├── google-analytics/
+    │   ├── analytics.spec.ts
+    │   ├── analytics.ts
+    │   ├── event.ts
+    │   ├── google-analytics.component.ts
+    │   ├── handlers.ts
+    │   ├── helpers.ts
+    │   ├── index.ts
+    │   └── options.interface.ts
+    ├── inline-products/
+    │   ├── index.ts
+    │   ├── inline-products-swiper.loader.ts
+    │   ├── inline-products.component.ts
+    │   ├── inline-products.listeners.tsx
+    │   └── inline-products.template.tsx
+    ├── load-more/
+    │   ├── index.ts
+    │   ├── load-more.component.ts
+    │   └── load-more.template.tsx
+    ├── products/
+    │   ├── cross-sellers.listeners.tsx
+    │   ├── cross-sellers.type.ts
+    │   ├── index.ts
+    │   ├── products.component.ts
+    │   ├── products.listeners.tsx
+    │   └── products.template.tsx
+    ├── share-menu/
+    │   ├── index.ts
+    │   ├── share-menu.component.ts
+    │   ├── share-menu.template.tsx
+    │   └── listeners/
+    │       ├── clipboard-polyfills.ts
+    │       └── share-menu.listener.ts
+    ├── shopspots/
+    │   ├── index.ts
+    │   ├── components/
+    │   │   ├── shopspot-base.component.ts
+    │   │   └── shopspot-icon.component.ts
+    │   ├── listeners/
+    │   │   └── shopspot.listeners.ts
+    │   └── templates/
+    │       └── shopspot-icon.template.tsx
+    ├── tags/
+    │   ├── index.ts
+    │   ├── tags-swiper.loader.ts
+    │   ├── tags.component.ts
+    │   ├── tags.template.spec.tsx
+    │   └── tags.template.tsx
+    ├── tile-content/
+    │   ├── index.ts
+    │   ├── tile-content.component.ts
+    │   └── tile-content.template.tsx
+    └── timephrase/
+        ├── index.ts
+        ├── timephrase.component.ts
+        └── timephrase.template.tsx
+
+================================================
+File: static.component.ts
+================================================
+import Placement from "../core/services/placement/placement"
+import WidgetService from "../core/widget.service"
+import type { RenderHTML } from "../core/types"
+import { Sdk } from "@stackla/widget-utils"
+
+declare const sdk: Sdk
+
+export default abstract class StaticComponent extends HTMLElement {
+  public renderHTML: RenderHTML = () => ""
+  public visible = true
+  public componentName: string = ""
+  public widgetComponentSelector = ""
+
+  protected constructor(componentName?: string) {
+    super()
+    this.componentName = componentName ?? ""
+  }
+
+  static get observedAttributes() {
+    //FIXME: Standardize the attribute names
+    return ["parent", "tile-id", "tileId"]
+  }
+
+  public getTile() {
+    return this.getTilesService().getTile(this.getTileId())
+  }
+
+  public getParent(): string {
+    const parent = this.getAttribute("parent")
+    if (!parent) {
+      throw new Error("Parent does not exist")
+    }
+    return parent
+  }
+
+  public getTileId() {
+    const tileId = this.getAttribute("tile-id") || this.getAttribute("tileId")
+
+    if (!tileId) {
+      throw new Error("tile attribute has not been added to the component. Please add it with the tile id.")
+    }
+
+    return tileId
+  }
+
+  public getEvents() {
+    return this.getPlacement().getEvents()
+  }
+
+  public waitForGlobals() {
+    return new Promise<void>(resolve => {
+      const interval = setInterval(() => {
+        if (!window.ugc || !window.ugc.widgets) {
+          throw new Error("UGC globals not loaded")
+        }
+
+        if (Object.keys(window.ugc.widgets).length) {
+          clearInterval(interval)
+          resolve()
+        }
+      }, 100)
+    })
+  }
+
+  public setRenderHTML(renderHTML: RenderHTML) {
+    this.renderHTML = renderHTML
+  }
+
+  public setVisible(draw: boolean) {
+    this.visible = draw
+    return this
+  }
+
+  private async getTemplate<T>(component?: T) {
+    const customisedTemplate = this.getPlacement().getCustomTemplate(this.componentName)
+
+    return customisedTemplate ? customisedTemplate(sdk, component) : this.renderHTML(sdk, component)
+  }
+
+  async render<T>(component?: T) {
+    await this.waitForGlobals()
+
+    if (this.visible) {
+      const result = await this.getTemplate<T>(component)
+      if (typeof result === "string") {
+        this.innerHTML += result
+        return
+      } else {
+        this.replaceChildren(result)
+        return
+      }
+    }
+
+    this.replaceChildren()
+  }
+
+  public async connectedCallback() {
+    const parent = this.getAttribute("parent")
+    if (parent) {
+      this.widgetComponentSelector = parent || ""
+    }
+
+    await this.render()
+  }
+
+  private findPlacementByRootNode() {
+    const rootNode = this.getRootNode() as ShadowRoot | StaticComponent
+
+    if (rootNode instanceof ShadowRoot) {
+      const hostElement = rootNode.host as StaticComponent
+
+      return hostElement.getPlacement()
+    }
+
+    return this.findWidgetServiceByRootNode().getPlacement()
+  }
+
+  private findWidgetServiceByRootNode() {
+    if (!window.ugc || !window.ugc.getWidgetBySelector) {
+      throw new Error("UGC globals (findWidgetServiceByRootNode) not loaded.")
+    }
+
+    const rootNode = this.getRootNode() as ShadowRoot | StaticComponent
+    const parentAttribute = this.getAttribute("parent")
+    if (parentAttribute) {
+      const widget = window.ugc.getWidgetBySelector(parentAttribute)
+
+      return widget
+    }
+
+    if (rootNode instanceof ShadowRoot) {
+      const hostElement = rootNode.host as StaticComponent
+
+      return hostElement.getWidgetService()
+    }
+
+    const widget = window.ugc.getWidgetBySelector(rootNode.tagName)
+
+    return widget
+  }
+
+  private findPlacementBySelector() {
+    if (!window.ugc || !window.ugc.getWidgetBySelector) {
+      throw new Error("UGC globals (findPlacementBySelector) not loaded.")
+    }
+
+    const widget = window.ugc.getWidgetBySelector(this.widgetComponentSelector.toUpperCase())
+    if (widget) {
+      return widget.getPlacement()
+    }
+
+    return null
+  }
+
+  private findWidgetServiceBySelector() {
+    if (!window.ugc || !window.ugc.getWidgetBySelector) {
+      throw new Error("UGC globals (findWidgetServiceBySelector) not loaded.")
+    }
+    const widget = window.ugc.getWidgetBySelector(this.widgetComponentSelector)
+    if (widget) {
+      return widget
+    }
+
+    return null
+  }
+
+  public getWidgetService(): WidgetService {
+    if (this.widgetComponentSelector && this.widgetComponentSelector.length > 0) {
+      const widgetService = this.findWidgetServiceBySelector()
+      if (widgetService) {
+        return widgetService
+      }
+    }
+
+    return this.findWidgetServiceByRootNode()
+  }
+
+  public getPlacement(): Placement {
+    if (this.widgetComponentSelector && this.widgetComponentSelector.length > 0) {
+      const placement = this.findPlacementBySelector()
+      if (placement) {
+        return placement
+      }
+    }
+
+    return this.findPlacementByRootNode()
+  }
+
+  public getTilesService() {
+    return this.getPlacement().getTilesService()
+  }
+}
+
+
+
+================================================
+File: add-to-cart/add-to-cart.component.ts
+================================================
+import { renderShopifyToDOM } from "@stackla/shopify-add-to-cart"
+import AddToCartTemplate from "./add-to-cart.template"
+import { TagExtended, ISdk } from "@stackla/widget-utils"
+import StaticComponent from "../static.component"
+
+declare const sdk: ISdk
+declare const CONFIG_ENDPOINT: string
+
+export default class AddToCartComponent extends StaticComponent {
+  public buttonStatus = "hidden"
+  public productSelected = {}
+  constructor() {
+    super("add-to-cart")
+  }
+
+  public override async connectedCallback() {
+    this.innerHTML = ""
+
+    this.setRenderHTML(AddToCartTemplate)
+    super.connectedCallback()
+  }
+
+  static override get observedAttributes() {
+    return super.observedAttributes.concat(["id", "custom_url", "target", "availability", "cta_text", "currency"])
+  }
+
+  private getMapping(productURL: string, currency: string, ctaText: string) {
+    const userSettings = window?.ugc?.options?.shopify
+
+    const {
+      showProductAddToCart = true,
+      product = { productURL },
+      type = "generic",
+      theme = "light"
+    } = userSettings || {}
+
+    return {
+      ...(userSettings || {}),
+      showProductAddToCart,
+      type,
+      product,
+      theme,
+      currency,
+      addToCartButtonText: ctaText,
+      parentNode: this.getPlacement().getShadowRoot(),
+      endpoint: CONFIG_ENDPOINT,
+      onError: () => {
+        const component = sdk.querySelector(`#${this.getDomIdentifier()}`)
+        component?.replaceChildren(AddToCartTemplate(sdk, this))
+      },
+      onLoad: () => {
+        console.log(
+          "found",
+          sdk.querySelector(`.stacklapopup-products-item-button-wrap[data-product-id="${productURL}"]`),
+          `.stacklapopup-products-item-button-wrap[data-product-id="${this.getProduct().id}"]`
+        )
+        sdk
+          .querySelector(`.stacklapopup-products-item-button-wrap[data-product-id="${this.getProduct().id}"]`)
+          ?.remove()
+      }
+    }
+  }
+
+  public getProduct() {
+    if (!this.getAttribute("productId")) {
+      throw new Error(
+        'Product ID is required for AddToCart component. This should be passed through the prop "productId".'
+      )
+    }
+
+    return {
+      id: this.getAttribute("productId"),
+      custom_url: this.getAttribute("url"),
+      target: this.getAttribute("target"),
+      availability: this.getAttribute("availability"),
+      cta_text: this.getAttribute("cta_text"),
+      currency: this.getAttribute("currency"),
+      type: "product"
+    } as unknown as TagExtended
+  }
+
+  public getDomIdentifier() {
+    const product = this.getProduct()
+    const tile = this.getTile()
+
+    if (!tile) {
+      throw new Error("Tile not found - add to cart.")
+    }
+
+    return `stacklapopup-add-to-cart-${product.id}-${tile.id}`
+  }
+
+  public override async render() {
+    const product = this.getProduct()
+    const domIdentifier = this.getDomIdentifier()
+    if (sdk.querySelector(domIdentifier)) {
+      console.warn("AddToCart component already exists in the DOM. Please remove it before adding a new one.")
+      return
+    }
+
+    await super.render(this)
+
+    const mapping = this.getMapping(
+      product.custom_url ?? "",
+      product.currency ?? "USD",
+      product.cta_text ?? "Add to Cart"
+    )
+
+    renderShopifyToDOM(this.getDomIdentifier(), mapping)
+  }
+}
+
+customElements.define("add-to-cart", AddToCartComponent)
+
+
+
+================================================
+File: add-to-cart/add-to-cart.template.tsx
+================================================
+import { createElement } from "@stackla/widget-utils/jsx"
+import { Sdk } from "@stackla/widget-utils"
+import AddToCartComponent from "./add-to-cart.component"
+import { ProductButton } from "../products/products.template"
+
+export default (_sdk: Sdk, component: AddToCartComponent) => {
+  const product = component.getProduct()
+  return <ProductButton product={product} />
+}
+
+
+
+================================================
+File: add-to-cart/index.ts
+================================================
+import AddToCartComponent from "./add-to-cart.component"
+
+export default AddToCartComponent
+
+
+
+================================================
+File: carousel-grouping/carousel-grouping-swiper.loader.ts
+================================================
+import { initializeSwiper } from "@stackla/widget-utils/extensions/swiper"
+import { SwiperType } from "@stackla/widget-utils/types"
+
+export function initializeSwiperForCarouselGrouping(
+  id: string,
+  widgetSelector: HTMLElement,
+  navArrows: boolean,
+  inlineTileSize: string,
+  paginationEl: HTMLElement
+) {
+  if (!widgetSelector) {
+    return
+  }
+
+  initializeSwiper({
+    id,
+    mode: "tags",
+    widgetSelector: widgetSelector,
+    prevButton: "swiper-carousel-grouping-button-prev",
+    nextButton: "swiper-carousel-grouping-button-next",
+    paramsOverrides: {
+      pagination: {
+        enabled: true,
+        el: paginationEl,
+        clickable: true
+      },
+      slidesPerView: "auto",
+      spaceBetween: inlineTileSize === "small" ? 10 : 5,
+      centeredSlides: true,
+      centeredSlidesBounds: true,
+      nested: true,
+      grabCursor: true,
+      ...(!navArrows && { navigation: {} }),
+      breakpointsBase: "container",
+      on: {
+        beforeInit: (swiper: SwiperType) => {
+          swiper.slideToLoop(0, 0, false)
+        }
+      }
+    }
+  })
+}
+
+
+
+================================================
+File: carousel-grouping/carousel-grouping.component.ts
+================================================
+import StaticComponent from "../static.component"
+import { initializeSwiperForCarouselGrouping } from "./carousel-grouping-swiper.loader"
+import { CarouselGroupingTemplate } from "./carousel-grouping.template"
+import { Sdk } from "@stackla/widget-utils"
+
+declare const sdk: Sdk
+export default class CarouselGroupingComponent extends StaticComponent {
+  constructor() {
+    super("carousel-grouping")
+  }
+
+  static override get observedAttributes() {
+    const parentAttributes = super.observedAttributes
+    return [...parentAttributes, "tile-id", "navigation-arrows", "context", "theme", "prev-icon", "next-icon"]
+  }
+
+  get tile() {
+    const tileId = this.getAttribute("tile-id")
+    return tileId ? sdk.getTileById(tileId) : undefined
+  }
+
+  get theme() {
+    return this.getAttribute("theme") || "light"
+  }
+
+  get prevIcon() {
+    const iconByTheme = this.theme === "light" ? "icon-prev" : "icon-prev-white"
+    return this.getAttribute("prev-icon") || iconByTheme
+  }
+
+  get nextIcon() {
+    const iconByTheme = this.theme === "light" ? "icon-next" : "icon-next-white"
+    return this.getAttribute("next-icon") || iconByTheme
+  }
+
+  get arrows() {
+    return this.getAttribute("navigation-arrows") === "true"
+  }
+
+  /**
+   * Use to generate unique identifier for the swiper component.
+   */
+  get context() {
+    const value = this.getAttribute("context")
+    return value ? `${value}-` : ""
+  }
+
+  public disconnectedCallback() {
+    this.innerHTML = ""
+  }
+
+  public override async connectedCallback() {
+    if (this.querySelector(".swiper-carousel-grouping")) {
+      this.querySelector(".swiper-carousel-grouping")?.remove()
+    }
+
+    this.setRenderHTML(CarouselGroupingTemplate)
+
+    const style = sdk.getStyleConfig()
+    const { inline_tile_size } = style
+
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+    await super.connectedCallback()
+
+    const tileId = this.getAttribute("tile-id")
+    const swiperTags = this.querySelector<HTMLElement>(".swiper-carousel-grouping")
+    const paginationEl = this.querySelector<HTMLElement>(".swiper-pagination")
+
+    if (tileId && swiperTags && paginationEl) {
+      initializeSwiperForCarouselGrouping(
+        `${this.context}-tags-${tileId}`,
+        swiperTags,
+        this.arrows,
+        inline_tile_size,
+        paginationEl
+      )
+    }
+  }
+
+  public override async render() {
+    await super.render(this)
+  }
+}
+
+try {
+  customElements.define("carousel-grouping", CarouselGroupingComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: carousel-grouping/carousel-grouping.template.tsx
+================================================
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import { Sdk, TagExtended, Tile } from "@stackla/widget-utils"
+import { ContentWrapper } from "@stackla/widget-utils/components"
+import CarouselGroupingComponent from "./carousel-grouping.component"
+
+type SwiperTemplateProps = {
+  tile: Tile
+  groupTiles: Tile[]
+  sdk: Sdk
+  component: CarouselGroupingComponent
+}
+
+export function CarouselGroupingTemplate(sdk: Sdk, component: CarouselGroupingComponent) {
+  const tile = component.getTile()
+
+  if (!tile) {
+    console.warn("CarouselGroupingTemplate no valid tile found")
+    return <></>
+  }
+
+  const groupTilesRaw: Tile[] = (tile.carousel_children as Tile[]) || []
+
+  const groupTilesArray: Tile[] = groupTilesRaw.reduce<Tile[]>((acc, childTile) => {
+    const fullTile = sdk.getTileById(childTile.id)
+    if (fullTile) {
+      acc.push(fullTile)
+    } else {
+      console.warn("CarouselGroupingTemplate: Missing tile for ID", childTile.id)
+    }
+    return acc
+  }, [])
+
+  if (!groupTilesArray.length) {
+    console.warn("CarouselGroupingTemplate no valid group tiles found")
+    return <></>
+  }
+
+  return <TileGroupSwiperTemplate groupTiles={groupTilesArray} tile={tile} sdk={sdk} component={component} />
+}
+
+export function TileGroupSwiperTemplate({ tile, groupTiles, component }: SwiperTemplateProps) {
+  const products: TagExtended[] = (tile.tags_extended || []).filter(({ type }) => type === "product")
+
+  const { arrows: navArrows, prevIcon, nextIcon } = component
+
+  if (!tile || !products || !products.length) {
+    console.warn("TileGroupSwiperTemplate no valid tile or products found")
+    return <></>
+  }
+
+  return (
+    <>
+      {navArrows && (
+        <div class="swiper-carousel-grouping-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon ${prevIcon}`} />
+        </div>
+      )}
+
+      <div class="swiper swiper-carousel-grouping">
+        <div class="swiper-carousel-grouping-wapper swiper-wrapper">
+          {groupTiles.map((tile: Tile) => (
+            <div class="tile-product swiper-slide">
+              <div class="tile-product-panel">
+                <ContentWrapper id={tile.id} parent={component.getParent()} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div class="swiper-pagination"></div>
+
+      {navArrows && (
+        <div class="swiper-carousel-grouping-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon ${nextIcon}`} />
+        </div>
+      )}
+    </>
+  )
+}
+
+
+
+================================================
+File: carousel-grouping/index.ts
+================================================
+import CarouselGroupingComponent from "./carousel-grouping.component"
+
+export default CarouselGroupingComponent
+
+
+
+================================================
+File: expanded-tile/expanded-tile.component.ts
+================================================
+import {
+  registerClickListener,
+  registerHoverEventListener,
+  registerTileExpandListener,
+  renderMouseLeaveEvent
+} from "./expanded-tile.listeners"
+import StaticComponent from "../static.component"
+
+const COMPONENT_NAME = "expanded-tiles"
+export default class ExpandedTileComponent extends StaticComponent {
+  constructor() {
+    super(COMPONENT_NAME)
+  }
+
+  private registerPreRenderEventListeners() {
+    registerClickListener(this)
+    registerHoverEventListener(this)
+    renderMouseLeaveEvent(this)
+    registerTileExpandListener(this)
+  }
+
+  public override async connectedCallback() {
+    const rootNode = this.getRootNode()
+    this.widgetComponentSelector = rootNode.nodeName
+
+    this.registerPreRenderEventListeners()
+  }
+
+  override async render() {
+    await this.waitForGlobals()
+
+    super.setVisible(this.getTilesService().getTile() !== undefined)
+
+    await super.render()
+  }
+}
+
+customElements.define(COMPONENT_NAME, ExpandedTileComponent)
+
+
+
+================================================
+File: expanded-tile/expanded-tile.listeners.ts
+================================================
+import ExpandedTileComponent from "./expanded-tile.component"
+import {
+  EVENT_HOVER,
+  EVENT_TILE_EXPAND,
+  EVENT_TILE_EXPAND_RENDERED,
+  EVENT_TILES_UPDATED,
+  EVENT_EXPANDED_TILE_CLOSE,
+  EVENT_MOUSE_LEAVE
+} from "@stackla/widget-utils/events"
+import { ITileEventData } from "../../core/interfaces/tile-event"
+import { Sdk } from "@stackla/widget-utils"
+
+declare const sdk: Sdk
+
+const includedElementPatterns = ["img", "video", "div", "ul"]
+
+function renderClickTileEvent(component: ExpandedTileComponent) {
+  const placement = component.getPlacement()
+  const tiles = component.getPlacement().querySelectorAll("#nosto-ugc-container.inline .ugc-tile")
+
+  if (!tiles) {
+    return
+  }
+
+  tiles.forEach(tile => {
+    if (tile.hasAttribute("expanded-listener")) {
+      return
+    }
+
+    tile.addEventListener("click", async event => {
+      const target = event.target as HTMLElement
+
+      // Tile should only expand when the clicked element is an image or video (for now)
+      const shouldTrigger = includedElementPatterns.includes(target.tagName.toLowerCase())
+
+      if (!shouldTrigger) {
+        return
+      }
+
+      const tile = target.closest(".ugc-tile")
+
+      if (!tile) {
+        return
+      }
+
+      const tileId = tile.getAttribute("data-id") as string
+
+      const tileJSON = await placement.getTilesService().fetchTile(tileId)
+
+      if (!tileJSON || !tileJSON.id) {
+        throw new Error("Tile not found - an issue occurred while fetching the tile, cannot expand")
+      }
+
+      const tileEventData: ITileEventData = {
+        tileData: tileJSON,
+        tileId: tileId,
+        widgetId: placement.getWidgetId(),
+        filterId: placement.getWidgetContainer().widgetOptions?.filter_id
+      }
+
+      const tileCustomEvent = new CustomEvent(EVENT_TILE_EXPAND, {
+        detail: {
+          data: tileEventData,
+          target: event.target
+        }
+      })
+
+      component.getEvents().dispatchUgcEvent(tileCustomEvent)
+    })
+
+    tile.setAttribute("expanded-listener", "true")
+  })
+}
+
+export async function registerTileExpandListener(component: ExpandedTileComponent) {
+  const shadowRoot = component.getPlacement().getShadowRoot()
+  const root = shadowRoot.querySelectorAll("expanded-tiles")
+
+  if (!root) {
+    return
+  }
+
+  component.getEvents().addUgcEventListener(EVENT_TILE_EXPAND, async event => {
+    if (sdk.getState("expandedTile")) {
+      return
+    }
+
+    sdk.setState("expandedTile", true)
+
+    const tile = (event as CustomEvent).detail.data.tileData
+    component.getTilesService().setTile(tile)
+    if (!component.visible) {
+      component.setVisible(true)
+    }
+
+    await component.render()
+
+    registerExitButtonListener(component as ExpandedTileComponent)
+
+    if (sdk.getState("expandedTile")) {
+      return
+    }
+
+    component.getEvents().dispatchUgcEvent(
+      new CustomEvent(EVENT_TILE_EXPAND_RENDERED, {
+        detail: {
+          data: tile.id,
+          target: event.target
+        }
+      })
+    )
+  })
+}
+
+export function registerClickListener(component: ExpandedTileComponent) {
+  renderClickTileEvent(component)
+
+  component.getEvents().addUgcEventListener(EVENT_TILES_UPDATED, () => {
+    const observer = new MutationObserver(() => {
+      renderClickTileEvent(component)
+      observer.disconnect()
+    })
+
+    observer.observe(sdk.querySelector(".ugc-tiles")!, {
+      childList: true,
+      subtree: true
+    })
+  })
+}
+
+export function renderMouseLeaveEvent(component: ExpandedTileComponent) {
+  const tiles = component.getPlacement().querySelectorAll(".ugc-tile")
+
+  if (!tiles) {
+    return
+  }
+
+  tiles.forEach(tile => {
+    if (tile.hasAttribute("mouse-leave-listener")) {
+      return
+    }
+
+    tile.addEventListener("mouseleave", () => {
+      component.getEvents().dispatchUgcEvent(
+        new CustomEvent(EVENT_MOUSE_LEAVE, {
+          detail: {
+            tile: tile,
+            data: {
+              widgetId: component.getPlacement().getWidgetId(),
+              filterId: component.getPlacement().getWidgetContainer().widgetOptions?.filter_id
+            }
+          }
+        })
+      )
+    })
+
+    tile.setAttribute("mouse-leave-listener", "true")
+  })
+}
+
+export function registerHoverEventListener(component: ExpandedTileComponent) {
+  const tiles = component.getPlacement().querySelectorAll(".ugc-tile")
+
+  if (!tiles) {
+    return
+  }
+
+  tiles.forEach(tile => {
+    if (tile.hasAttribute("hover-tracking")) {
+      return
+    }
+
+    tile.addEventListener("mouseover", () => {
+      component.getEvents().dispatchUgcEvent(
+        new CustomEvent(EVENT_HOVER, {
+          detail: {
+            tile: tile,
+            data: {
+              widgetId: component.getPlacement().getWidgetId(),
+              filterId: component.getPlacement().getWidgetContainer().widgetOptions?.filter_id
+            }
+          }
+        })
+      )
+    })
+    tile.setAttribute("hover-tracking", "true")
+  })
+}
+
+export function registerExitButtonListener(component: ExpandedTileComponent) {
+  const exitButtonSelector = component.querySelector(".exit") as HTMLElement
+  const backArrowSelector = component.querySelector(".back") as HTMLElement
+
+  const registerClickListener = (element: HTMLElement | null) => {
+    if (!element) return
+
+    element.onclick = () => {
+      if (component) {
+        component.replaceChildren()
+      }
+
+      component.getEvents().dispatchUgcEvent(
+        new CustomEvent(EVENT_EXPANDED_TILE_CLOSE, {
+          detail: {
+            data: {
+              widgetId: component.getPlacement().getWidgetId()
+            }
+          }
+        })
+      )
+
+      sdk.setState("expandedTile", false)
+    }
+  }
+
+  registerClickListener(exitButtonSelector)
+  registerClickListener(backArrowSelector)
+}
+
+
+
+================================================
+File: expanded-tile/index.ts
+================================================
+import ExpandedTileComponent from "./expanded-tile.component"
+
+export default ExpandedTileComponent
+
+
+
+================================================
+File: google-analytics/analytics.spec.ts
+================================================
+import GoogleAnalytics from "./analytics"
+import tiles from "../../../tests/data/tiles"
+import { UgcListener } from "../../core/services/event/event.service"
+import { createTilesResponse } from "../../../tests/responses/response"
+import { defaultWidgetOptions, getWidgetContainerOptions } from "../../../tests/mock/placement-mock"
+import Placement from "../../core/services/placement/placement"
+import { initPlacement } from "../../../ui/core/services/placement/placement.service"
+import nock from "nock"
+import { EventName } from "@stackla/widget-utils"
+
+describe("Analytics", () => {
+  // @ts-ignore
+  global.WIDGET_ENDPOINT = "http://localhost:4001"
+  // @ts-ignore
+  global.COMPONENT_REGISTRY = "http://localhost:4001"
+
+  const analytics = new GoogleAnalytics()
+
+  const analyticsOptions = {
+    events: {
+      load: true,
+      tileExpand: true,
+      pinClick: true,
+      userClick: true,
+      shareClick: true,
+      moreLoad: true,
+      shopspotFlyoutExpand: true,
+      productActionClick: true,
+      impression: true,
+      tileHover: true,
+      emailTileLoad: true,
+      emailTileClick: true,
+      likeClick: true,
+      dislikeClick: true,
+      voteClick: false
+    },
+    trackingId: "G-V4Q5D7PVMZ",
+    nonInteractionEvents: {
+      load: true,
+      tileExpand: true,
+      pinClick: true,
+      userClick: true,
+      shareClick: true,
+      moreLoad: true,
+      shopspotFlyoutExpand: true,
+      productActionClick: true,
+      impression: true,
+      tileHover: true,
+      emailTileLoad: true,
+      emailTileClick: true,
+      likeClick: true,
+      dislikeClick: true,
+      voteClick: false
+    },
+    categoryName: "",
+    enabledCustomCategoryName: false,
+    eventLabel: "default",
+    accountId: "263697524",
+    viewId: "G-V4Q5D7PVMZ",
+    widgets: [],
+    connectionInfo: [],
+    analyticsVersion: "v4",
+    trackingStatus: true,
+    acknowledgedEmailTrackingIds: {
+      "365945913": true
+    },
+    activated: true,
+    connectedAt: "1696825443000",
+    propertyId: "365945913",
+    dataStreamId: "4958137526"
+  }
+
+  const events = [
+    "load",
+    "tileExpand",
+    "pinClick",
+    "userClick",
+    "shareClick",
+    "moreLoad",
+    "shopspotFlyoutExpand",
+    "productActionClick",
+    "impression",
+    "tileHover",
+    "emailTileLoad",
+    "emailTileClick",
+    "likeClick",
+    "dislikeClick"
+  ]
+
+  let placement: Placement
+
+  const widgetOptions = {
+    ...defaultWidgetOptions,
+    wid: "62eb2697a8db61"
+  }
+
+  const widgetContainerOptions = getWidgetContainerOptions(widgetOptions.wid)
+
+  beforeAll(() => {
+    window.gtag = jest.fn()
+    createTilesResponse(
+      {
+        wid: widgetOptions.wid,
+        filter_id: 2
+      },
+      25,
+      1
+    )
+  })
+
+  beforeEach(async () => {
+    document.body.innerHTML = `<div id="ugc-widget" data-wid="${widgetOptions.wid}"></div>`
+    placement = await initPlacement(widgetContainerOptions, widgetOptions)
+  })
+
+  afterEach(() => {
+    placement.getEvents().removeListeners(events as EventName[])
+    delete window.ugc.listeners
+    delete window.ugc.sdk
+    delete window.ugc.eventsEmitted
+    const ugcElement = document.querySelector(`#ugc-widget[data-wid="${widgetOptions.wid}"]`)
+    ugcElement?.remove()
+    const ugcContainer = document.querySelector("#nosto-ugc-container")
+    ugcContainer?.remove()
+    document.body.innerHTML = ""
+  })
+
+  afterAll(() => {
+    nock.cleanAll()
+  })
+
+  it("should get analytics", async () => {
+    analytics.init(placement, analyticsOptions, "1234")
+
+    const ugc = window.ugc
+
+    const eventRegistry = ugc.listeners![placement.getEvents().getUniqueSelector()]
+
+    const eventsMatchGA = await new Promise<boolean>(resolve => {
+      let eventsMatch = true
+      events.forEach(event => {
+        if (!eventRegistry.find((e: UgcListener) => e.eventType === event)) {
+          eventsMatch = false
+        }
+      })
+
+      resolve(eventsMatch)
+    })
+
+    expect(eventsMatchGA).toBe(true)
+  })
+
+  it("should make event data should appear in the data layer according to the event", async () => {
+    window.dataLayer = []
+
+    analytics.init(placement, analyticsOptions, "1234")
+
+    await new Promise<void>(resolve => {
+      if (!events) {
+        resolve()
+        return
+      }
+
+      events.forEach(event => {
+        placement.getEvents().dispatchUgcEvent(
+          new CustomEvent(event, {
+            detail: {
+              data: {
+                widgetId: "1234",
+                tileData: tiles[0]
+              }
+            }
+          })
+        )
+      })
+
+      resolve()
+    })
+
+    expect(window.ugc).toBeDefined()
+    expect(window.ugc.eventsEmitted).toBeDefined()
+
+    const eventsEmitted = window.ugc.eventsEmitted
+
+    expect(eventsEmitted).toBeDefined()
+
+    const dataLayerEvents = eventsEmitted![placement.getEvents().getUniqueSelector()]
+
+    expect(dataLayerEvents).toContain("load")
+    expect(dataLayerEvents).toContain("tileExpand")
+    expect(dataLayerEvents).toContain("pinClick")
+    expect(dataLayerEvents).toContain("userClick")
+    expect(dataLayerEvents).toContain("shareClick")
+    expect(dataLayerEvents).not.toContain("nostoUgcVoteClick")
+  })
+})
+
+
+
+================================================
+File: google-analytics/analytics.ts
+================================================
+import Helpers from "./helpers"
+import Handlers, { HandlerMethod, IEvent } from "./handlers"
+import Options from "./options.interface"
+import Placement from "../../core/services/placement/placement"
+import { EventName } from "@stackla/widget-utils/events"
+
+declare global {
+  interface Window {
+    gtag: (action: string, event: string, options: Record<string, unknown>) => void
+  }
+}
+
+export default class GoogleAnalytics {
+  enable: boolean = true
+  init(placement: Placement, options: Options, widgetId: string): void {
+    const { trackingId, domainName = [], events } = options
+    if (window.location.href.includes("stackla.com") && window.location.href.includes("style_preview")) {
+      return
+    }
+
+    Helpers.loadGA4(trackingId, domainName)
+
+    Object.entries(events).forEach(([event, isEventEnabled]) => {
+      const handlerName = event.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase()) as HandlerMethod
+      const fn = Handlers[handlerName] as ((event: IEvent) => void) | undefined
+
+      if (typeof fn === "object" || typeof fn === "function") {
+        placement.getEvents().addUgcEventListener(event as EventName, event => {
+          const data = (event as CustomEvent).detail.data
+          const eventWidgetId = data.widgetId
+
+          if (!isEventEnabled) {
+            return
+          }
+
+          if (eventWidgetId !== widgetId) {
+            return
+          }
+
+          const event_data: IEvent = {
+            data: data,
+            gtag: window.gtag
+          }
+
+          fn.call(Handlers, event_data)
+        })
+      } else {
+        throw new Error(`Handler ${handlerName} not found`)
+      }
+    })
+  }
+}
+
+
+
+================================================
+File: google-analytics/event.ts
+================================================
+import Helpers from "./helpers"
+import { Tile } from "@stackla/widget-utils"
+import { ITileEventData } from "../../core/interfaces/tile-event"
+import { getGoogleEventParameters, getProductTags, getTags, getTerms, TrackableTile } from "@stackla/analytics-tracking"
+
+import { TileProperties } from "@stackla/analytics-tracking/src/tracking/TrackableTile"
+
+export type TileEventAndProperties = ITileEventData & TileProperties
+
+const EVENT_TRACKING: Record<string, any> = {
+  nosto_ugc_tag_load: {},
+  nosto_ugc_term_load: {}
+}
+class Event {
+  static getTileData(data: TileEventAndProperties): Tile | Record<never, never> {
+    if (!data.tileData) {
+      return {}
+    }
+
+    return {
+      _id: data.tileData._id,
+      tile_id: data.tileData._id?.$id ?? data.tileData._id,
+      source: data.tileData.source,
+      media: data.tileData.media,
+      user: data.tileData.user,
+      url: data.tileData.original_url,
+      terms: data.tileData.terms,
+      term_meta: data.tileData.term_meta,
+      tags: data.tileData.tags,
+      original_url: data.tileData.original_url
+    }
+  }
+
+  static getLocationData(data: TileEventAndProperties): TileEventAndProperties {
+    return {
+      ...data,
+      nostoUgcLocationId: data.locationId,
+      nostoUgcLocationName: data.locationName
+    } as TileEventAndProperties
+  }
+
+  static getShareData(data: TileEventAndProperties) {
+    return {
+      ...data,
+      ...Event.getTileData(data),
+      nosto_ugc_shared_network: data.shareNetwork ? data.shareNetwork : "N/A"
+    } as unknown as TileEventAndProperties
+  }
+
+  static getCategoryName(categoryName: string, data: TileEventAndProperties) {
+    if (!data) {
+      return "Widget & Filter (N/A)"
+    }
+
+    const widgetId = typeof data.widgetId !== "undefined" ? data.widgetId : "N/A"
+    const filterId = typeof data.filterId !== "undefined" ? data.filterId : "N/A"
+
+    if (categoryName) {
+      return categoryName
+    }
+
+    return `Widget (${widgetId}), Filter (${filterId})`
+  }
+
+  static getEventLabel(data: TileEventAndProperties) {
+    const label = []
+
+    if (typeof data.tileData !== "undefined") {
+      if (data.tileData._id) {
+        label.push("tile_id: ")
+        label.push(data.tileData._id["$id"])
+      }
+      label.push(", post_url: ")
+      label.push(data.tileData.original_url || "-")
+    }
+
+    return label.join("")
+  }
+
+  static getParsedUserProperties(data: TileEventAndProperties) {
+    data.tileData = data.tileData || {}
+    return Object.fromEntries(
+      Object.entries({
+        id: data.tileData._id?.["$id"] ?? data.tileData._id,
+        terms: getTerms(data),
+        tags: getTags(data),
+        productTags: getProductTags(data),
+        widgetId: data.widgetId,
+        filterId: data.filterId,
+        nostoUGCConversion: false,
+        nostoUGCConversionExpiry: 0,
+        source: data.tileData.source,
+        media: data.tileData.media,
+        user: data.tileData.user,
+        url: data.tileData.original_url,
+        original_url: data.tileData.original_url,
+        shareNetwork: data.shareNetwork,
+        locationId: data.locationId,
+        locationName: data.locationName
+      }).filter(([, value]) => value !== undefined && value !== null)
+    )
+  }
+
+  static sendGA4Event(data: TileEventAndProperties, eventAction: string) {
+    const eventData = getGoogleEventParameters(data)
+    const tile = TrackableTile.create(Event.getParsedUserProperties(data))
+
+    switch (eventAction) {
+      // Load more event will be triggered, but we'll only collect widget id and auto mark as conversion
+      case "Nosto UGC Widget Load More":
+      case "Nosto UGC Map Pin Click":
+        // Creates a localStorage entry with this widget.
+        // set widget to be converted by default
+        tile.setUGCConversion(true)
+        tile.setUGCConversionExpiry()
+        tile.save()
+        break
+      case "Nosto UGC Tile Like Click":
+      case "Nosto UGC Tile Dislike Click":
+      case "Nosto UGC Tile Hover":
+      case "Nosto UGC Product CTA Click":
+      case "Nosto UGC Tile Expand":
+      case "Nosto UGC Tile User Click":
+      case "Nosto UGC Tile Share Click":
+      case "Nosto UGC Shopspot Flyout Opens":
+      case "Nosto UGC Shopspot CTA Click":
+        // Creates a localStorage entry with this tile.
+        TrackableTile.create(Event.getParsedUserProperties(data)).save()
+        break
+    }
+
+    const parsedEventAction = eventAction.toLowerCase().replaceAll(/ /g, "_")
+
+    if (parsedEventAction === "nosto_ugc_tile_load") {
+      for (const tag of (eventData["nosto_ugc_tags"] ?? "").split(",").filter(Boolean)) {
+        if (!EVENT_TRACKING["nosto_ugc_tag_load"][tag]) {
+          // ensure a tag is only triggering this event once
+          Helpers.gtag("event", "nosto_ugc_tag_load", {
+            nosto_ugc_tags: tag
+          })
+          EVENT_TRACKING["nosto_ugc_tag_load"][tag] = true
+        }
+      }
+      for (const term of (eventData["nosto_ugc_terms"] ?? "").split(",").filter(Boolean)) {
+        if (!EVENT_TRACKING["nosto_ugc_term_load"][term]) {
+          Helpers.gtag("event", "nosto_ugc_term_load", {
+            nosto_ugc_terms: term
+          })
+          EVENT_TRACKING["nosto_ugc_term_load"][term] = true
+        }
+      }
+    }
+    Helpers.gtag("event", parsedEventAction, eventData)
+
+    return {
+      eventData,
+      eventAction: parsedEventAction
+    }
+  }
+}
+
+export default Event
+
+
+
+================================================
+File: google-analytics/google-analytics.component.ts
+================================================
+import StaticComponent from "../static.component"
+import GoogleAnalytics from "./analytics"
+import Options from "./options.interface"
+export default class GoogleAnalyticsComponent extends StaticComponent {
+  constructor() {
+    super("google-analytics")
+  }
+
+  public override async render() {
+    const placement = this.getPlacement()
+    const googleAnalytics = new GoogleAnalytics()
+
+    const googleSettings = placement.getPluginsSettings()?.googleAnalytics
+
+    if (googleSettings) {
+      //TODO - Fix the type in future commit
+      const config = googleSettings.config as unknown as Options
+      googleAnalytics.init(placement, config, placement.getWidgetId())
+    }
+  }
+}
+
+customElements.define("google-analytics", GoogleAnalyticsComponent)
+
+
+
+================================================
+File: google-analytics/handlers.ts
+================================================
+import Event, { TileEventAndProperties } from "./event"
+export interface IEvent {
+  data: TileEventAndProperties
+  event_type?: string
+  gtag: (action: string, event: string, options: Record<string, unknown>) => void
+}
+
+export type HandlerMethod =
+  | "getAction"
+  | "generalEvent"
+  | "load"
+  | "moreLoad"
+  | "pinClick"
+  | "tileExpand"
+  | "userClick"
+  | "shareClick"
+  | "shopspotFlyoutExpand"
+  | "shopspotActionClick"
+  | "productActionClick"
+  | "impression"
+  | "hover"
+  | "tileHover"
+  | "likeClick"
+  | "dislikeClick"
+
+const ACTION_IMPRESSION = "Nosto UGC Tile Load"
+const ACTION_LIKE = "Nosto UGC Tile Like Click"
+const ACTION_LOAD = "Nosto UGC Widget Load"
+const ACTION_LOAD_MORE = "Nosto UGC Widget Load More"
+const ACTION_DISLIKE = "Nosto UGC Tile Dislike Click"
+const ACTION_HOVER = "Nosto UGC Tile Hover"
+const ACTION_PRODUCT_CLICK = "Nosto UGC Product CTA Click"
+const ACTION_PRODUCT_PINCLICK = "Nosto UGC Map Pin Click"
+const ACTION_PRODUCT_TILE_EXPAND = "Nosto UGC Tile Expand"
+const ACTION_PRODUCT_USER_CLICK = "Nosto UGC Tile User Click"
+const ACTION_SHARE_CLICK = "Nosto UGC Tile Share Click"
+const ACTION_SHOPSPOT_FLYOUT = "Nosto UGC Shopspot Flyout Opens"
+const ACTION_EMAIL_TILE_LOAD = "Nosto UGC Email Tile Load"
+const ACTION_EMAIL_TILE_CLICK = "Nosto UGC Email Tile Click"
+const ACTION_VOTE_CLICK = "Nosto UGC Vote Click"
+
+const EVENT_IMPRESSION = "impression"
+const EVENT_LOAD = "load"
+const EVENT_LOAD_MORE = "moreLoad"
+const EVENT_LIKE = "like"
+const EVENT_DISLIKE = "dislike"
+const EVENT_HOVER = "hover"
+const EVENT_PRODUCT_CLICK = "productClick"
+const EVENT_PRODUCT_PINCLICK = "pinClick"
+const EVENT_TILE_EXPAND = "tileExpand"
+const EVENT_PRODUCT_USER_CLICK = "userClick"
+const EVENT_SHARE_CLICK = "shareClick"
+const EVENT_SHOPSPOT_FLYOUT = "shopspotFlyout"
+const EVENT_EMAIL_TILE_LOAD = "emailTileLoad"
+const EVENT_EMAIL_TILE_CLICK = "emailTileClick"
+const EVENT_VOTE_CLICK = "voteClick"
+
+export default class Handlers {
+  static getAction(event: string | undefined): string {
+    switch (event) {
+      case EVENT_IMPRESSION:
+        return ACTION_IMPRESSION
+      case EVENT_LIKE:
+        return ACTION_LIKE
+      case EVENT_LOAD:
+        return ACTION_LOAD
+      case EVENT_LOAD_MORE:
+        return ACTION_LOAD_MORE
+      case EVENT_DISLIKE:
+        return ACTION_DISLIKE
+      case EVENT_HOVER:
+        return ACTION_HOVER
+      case EVENT_PRODUCT_CLICK:
+        return ACTION_PRODUCT_CLICK
+      case EVENT_PRODUCT_PINCLICK:
+        return ACTION_PRODUCT_PINCLICK
+      case EVENT_TILE_EXPAND:
+        return ACTION_PRODUCT_TILE_EXPAND
+      case EVENT_PRODUCT_USER_CLICK:
+        return ACTION_PRODUCT_USER_CLICK
+      case EVENT_SHARE_CLICK:
+        return ACTION_SHARE_CLICK
+      case EVENT_SHOPSPOT_FLYOUT:
+        return ACTION_SHOPSPOT_FLYOUT
+      case EVENT_EMAIL_TILE_LOAD:
+        return ACTION_EMAIL_TILE_LOAD
+      case EVENT_EMAIL_TILE_CLICK:
+        return ACTION_EMAIL_TILE_CLICK
+      case EVENT_VOTE_CLICK:
+        return ACTION_VOTE_CLICK
+      default:
+        console.log(`${event} does not exist`)
+        return event ?? ""
+    }
+  }
+
+  static generalEvent(event_data: IEvent): any {
+    const { event_type, data } = event_data
+
+    const eventAction = Handlers.getAction(event_type)
+    return Event.sendGA4Event(data, eventAction)
+  }
+
+  static load(e: IEvent): IEvent {
+    e.event_type = EVENT_LOAD
+
+    return Handlers.generalEvent(e)
+  }
+
+  static voteClick(e: IEvent): IEvent {
+    e.event_type = EVENT_VOTE_CLICK
+
+    return Handlers.generalEvent(e)
+  }
+
+  static moreLoad(e: IEvent): IEvent {
+    e.event_type = EVENT_LOAD_MORE
+
+    return Handlers.generalEvent(e)
+  }
+
+  static pinClick(e: IEvent): IEvent {
+    e.event_type = EVENT_PRODUCT_PINCLICK
+    e.data = Event.getLocationData(e.data)
+
+    return Handlers.generalEvent(e)
+  }
+
+  static tileExpand(e: IEvent): IEvent {
+    e.event_type = EVENT_TILE_EXPAND
+
+    return Handlers.generalEvent(e)
+  }
+
+  static userClick(e: IEvent): IEvent {
+    e.event_type = EVENT_PRODUCT_USER_CLICK
+
+    return Handlers.generalEvent(e)
+  }
+
+  static emailTileClick(e: IEvent): IEvent {
+    e.event_type = EVENT_EMAIL_TILE_CLICK
+
+    return Handlers.generalEvent(e)
+  }
+
+  static emailTileLoad(e: IEvent): IEvent {
+    e.event_type = EVENT_EMAIL_TILE_LOAD
+
+    return Handlers.generalEvent(e)
+  }
+
+  static shareClick(e: IEvent): IEvent {
+    e.event_type = EVENT_SHARE_CLICK
+    e.data = Event.getShareData(e.data)
+
+    return Handlers.generalEvent(e)
+  }
+
+  static shopspotFlyoutExpand(e: IEvent): IEvent {
+    e.event_type = EVENT_SHOPSPOT_FLYOUT
+
+    return Handlers.generalEvent(e)
+  }
+
+  static shopspotActionClick(e: IEvent): IEvent {
+    return Handlers.productActionClick(e)
+  }
+
+  static productActionClick(e: IEvent): IEvent {
+    e.event_type = EVENT_PRODUCT_CLICK
+
+    return Handlers.generalEvent(e)
+  }
+
+  static impression(e: IEvent): IEvent {
+    e.event_type = EVENT_IMPRESSION
+
+    return Handlers.generalEvent(e)
+  }
+
+  static hover(e: IEvent): IEvent {
+    e.event_type = EVENT_HOVER
+
+    return Handlers.generalEvent(e)
+  }
+
+  static tileHover(e: IEvent): IEvent {
+    return Handlers.hover(e)
+  }
+
+  static likeClick(e: IEvent): IEvent {
+    e.event_type = EVENT_LIKE
+
+    return Handlers.generalEvent(e)
+  }
+
+  static dislikeClick(e: IEvent): IEvent {
+    e.event_type = EVENT_DISLIKE
+
+    return Handlers.generalEvent(e)
+  }
+}
+
+
+
+================================================
+File: google-analytics/helpers.ts
+================================================
+declare global {
+  interface Window {
+    dataLayer: IArguments[]
+  }
+}
+
+export default class Helpers {
+  static addScript(src: string | null) {
+    return new Promise<void>((resolve, reject) => {
+      // Check if script already exists in DOM
+      const scripts = window.document.getElementsByTagName("script")
+      // Check if any scripts contain src
+      for (let i = 0; i < scripts.length; i++) {
+        if (scripts[i].getAttribute("src") === src) {
+          resolve()
+          return
+        }
+      }
+
+      const s = window.document.createElement("script")
+
+      s.setAttribute("src", src as string)
+      // @ts-ignore
+      s.addEventListener("load", resolve)
+      s.addEventListener("error", reject)
+
+      window.document.head.appendChild(s)
+    })
+  }
+  static gtag(...args: any) {
+    if (!window.dataLayer || !window.ugc) {
+      console.error("Failed to initialise GA4 - dataLayer or ugc not found")
+      return
+    }
+
+    const ugcOptions = window.ugc.options
+    const selectedTrackingId = ugcOptions && ugcOptions.analytics && ugcOptions.analytics.selectedTrackingId
+
+    if (args[0] === "event" && selectedTrackingId) {
+      args[2] = {
+        ...args[2],
+        send_to: selectedTrackingId
+      }
+    }
+
+    // @ts-ignore
+    window.gtag(...args)
+  }
+
+  static generateUUID() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2)
+  }
+
+  static generateUserId() {
+    let userId = localStorage.getItem("nosto_ugc_user_id")
+
+    if (!userId) {
+      userId = Helpers.generateUUID()
+      localStorage.setItem("nosto_ugc_user_id", userId)
+    }
+
+    return userId
+  }
+
+  static initialiseGlobalAnalytics(
+    domains: string[],
+    trackingIds: string | string[],
+    selectedTrackingId: string | null = null
+  ) {
+    window.dataLayer = window.dataLayer || []
+
+    window.ugc = window.ugc || {
+      options: {}
+    }
+
+    window.ugc.options = window.ugc.options || {
+      analytics: {}
+    }
+
+    const ugcAnalytics = (window.ugc.analytics = window.ugc.analytics || {
+      domains: [],
+      trackingIds: [],
+      selectedTrackingId: ""
+    })
+
+    if (!ugcAnalytics.domains) {
+      ugcAnalytics.domains = []
+    }
+
+    if (!ugcAnalytics.trackingIds) {
+      ugcAnalytics.trackingIds = []
+    }
+
+    ugcAnalytics.domains = domains
+    ugcAnalytics.trackingIds = Array.isArray(trackingIds) ? trackingIds : [trackingIds]
+    ugcAnalytics.selectedTrackingId = selectedTrackingId ?? ugcAnalytics.trackingIds
+  }
+
+  static initialiseGtag(trackingId: string) {
+    window.dataLayer = window.dataLayer || []
+    if (!window.gtag) {
+      window.gtag = function () {
+        // eslint-disable-next-line prefer-rest-params
+        window.dataLayer.push(arguments)
+      }
+      // @ts-ignore
+      window.gtag("js", new Date())
+      window.gtag("config", trackingId, { transport_type: "beacon" })
+    }
+  }
+
+  static loadGA4(trackingIds: string | string[], domains: string[]) {
+    if (!trackingIds) {
+      return
+    }
+    // Generate user id for gtag
+    const userId = Helpers.generateUserId()
+
+    const usedTrackingIds: string[] = []
+    let trackingInitialized = false
+
+    if (Array.isArray(trackingIds)) {
+      // Loop through the tracking ids and domains and initialise the tracking
+      domains.forEach((domain, index) => {
+        // Ensure no duplicate tracking ids are initiated
+        if (!usedTrackingIds.includes(trackingIds[index]) && window.location.href.indexOf(domain) > -1) {
+          if (domain === "" && trackingInitialized) {
+            // do not use the default tracking if the tracking has already been initialised with another domain
+            return
+          }
+          if (!trackingInitialized) {
+            // Create the first script assuming the domain is met.
+            Helpers.initialiseGtag(trackingIds[index])
+            trackingInitialized = true
+          }
+
+          const trackingId = trackingIds[index]
+          Helpers.gtag("config", trackingId, {
+            cookie_flags: "SameSite=None;",
+            user_id: userId
+          })
+
+          usedTrackingIds.push(trackingId)
+
+          Helpers.initialiseGlobalAnalytics(domains, trackingIds, trackingId)
+        }
+      })
+
+      Helpers.gtag("set", "user_properties", {
+        is_nosto_ugc_new_user: Helpers.isNewUser() ? "true" : "false"
+      })
+    } else {
+      Helpers.initialiseGtag(trackingIds)
+      Helpers.gtag("config", trackingIds, {
+        cookie_flags: "SameSite=None;",
+        user_id: userId
+      })
+
+      Helpers.gtag("set", "user_properties", {
+        is_nosto_ugc_new_user: Helpers.isNewUser() ? "true" : "false"
+      })
+
+      Helpers.initialiseGlobalAnalytics(domains, trackingIds)
+    }
+  }
+
+  static isNewUser() {
+    return !localStorage.getItem("is_nosto_ugc_user")
+  }
+}
+
+
+
+================================================
+File: google-analytics/index.ts
+================================================
+import GoogleAnalyticsComponent from "./google-analytics.component"
+
+export default GoogleAnalyticsComponent
+
+
+
+================================================
+File: google-analytics/options.interface.ts
+================================================
+import { EventName } from "@stackla/widget-utils/events"
+
+export default interface Options {
+  trackingId: string | string[]
+  domainName?: string[]
+  events: Partial<Record<EventName, boolean>>
+}
+
+
+
+================================================
+File: inline-products/index.ts
+================================================
+import InlineProductsComponent from "./inline-products.component"
+
+export default InlineProductsComponent
+
+
+
+================================================
+File: inline-products/inline-products-swiper.loader.ts
+================================================
+import { initializeSwiper } from "@stackla/widget-utils/extensions/swiper"
+import { SwiperType } from "@stackla/widget-utils/types"
+
+export function initializeSwiperForInlineProducts(
+  id: string,
+  widgetSelector: HTMLElement,
+  navArrows: boolean,
+  inlineTileSize: string,
+  paginationEl: HTMLElement
+) {
+  if (!widgetSelector) {
+    return
+  }
+
+  initializeSwiper({
+    id,
+    mode: "tags",
+    widgetSelector: widgetSelector,
+    prevButton: "swiper-inline-products-button-prev",
+    nextButton: "swiper-inline-products-button-next",
+    paramsOverrides: {
+      pagination: {
+        enabled: true,
+        el: paginationEl,
+        clickable: true
+      },
+      slidesPerView: "auto",
+      spaceBetween: inlineTileSize === "small" ? 10 : 5,
+      centeredSlides: true,
+      centeredSlidesBounds: false,
+      nested: true,
+      grabCursor: true,
+      ...(!navArrows && { navigation: {} }),
+      breakpointsBase: "container",
+      on: {
+        beforeInit: (swiper: SwiperType) => {
+          swiper.slideToLoop(0, 0, false)
+        }
+      }
+    }
+  })
+}
+
+
+
+================================================
+File: inline-products/inline-products.component.ts
+================================================
+import StaticComponent from "../static.component"
+import { initializeSwiperForInlineProducts } from "./inline-products-swiper.loader"
+import { InlineProductsTemplate } from "./inline-products.template"
+import { Sdk } from "@stackla/widget-utils"
+import {
+  registerAddToCartButtonClickListener,
+  registerExpandControlClickListener,
+  registerProductHideIconClickListener,
+  registerShopspotClickListener
+} from "./inline-products.listeners"
+
+declare const sdk: Sdk
+export default class InlineProductsComponent extends StaticComponent {
+  constructor() {
+    super("inline-products")
+  }
+
+  static override get observedAttributes() {
+    return ["tile-id", "navigation-arrows", "context", "theme", "prev-icon", "next-icon"]
+  }
+
+  get tile() {
+    const tileId = this.getAttribute("tile-id")
+    return tileId ? sdk.getTileById(tileId) : undefined
+  }
+
+  get theme() {
+    return this.getAttribute("theme") || "light"
+  }
+
+  get prevIcon() {
+    const iconByTheme = this.theme === "light" ? "icon-prev" : "icon-prev-white"
+    return this.getAttribute("prev-icon") || iconByTheme
+  }
+
+  get nextIcon() {
+    const iconByTheme = this.theme === "light" ? "icon-next" : "icon-next-white"
+    return this.getAttribute("next-icon") || iconByTheme
+  }
+
+  get arrows() {
+    return this.getAttribute("navigation-arrows") === "true"
+  }
+
+  /**
+   * Use to generate unique identifier for the swiper component.
+   */
+  get context() {
+    const value = this.getAttribute("context")
+    return value ? `${value}-` : ""
+  }
+
+  public disconnectedCallback() {
+    this.innerHTML = ""
+  }
+
+  public override async connectedCallback() {
+    if (this.querySelector(".swiper-inline-products")) {
+      this.querySelector(".swiper-inline-products")?.remove()
+    }
+
+    this.setRenderHTML(InlineProductsTemplate)
+
+    const style = sdk.getStyleConfig()
+    const { inline_tile_size } = style
+
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+    await super.connectedCallback()
+
+    const tileId = this.getAttribute("tile-id")
+    const swiperTags = this.querySelector<HTMLElement>(".swiper-inline-products")
+    const paginationEl = this.querySelector<HTMLElement>(".swiper-pagination")
+
+    if (tileId && swiperTags && paginationEl) {
+      initializeSwiperForInlineProducts(
+        `${this.context}-tags-${tileId}`,
+        swiperTags,
+        this.arrows,
+        inline_tile_size,
+        paginationEl
+      )
+    }
+
+    this.registerEvents()
+  }
+
+  private registerEvents() {
+    registerExpandControlClickListener(this)
+    registerShopspotClickListener(this)
+    registerAddToCartButtonClickListener(this)
+    registerProductHideIconClickListener(this)
+  }
+
+  public override async render() {
+    await super.render(this)
+  }
+}
+
+try {
+  customElements.define("inline-products", InlineProductsComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: inline-products/inline-products.listeners.tsx
+================================================
+import InlineProductsComponent from "./inline-products.component"
+import { SwiperType } from "@stackla/widget-utils/types"
+import { EVENT_PRODUCT_HIDE_ICON_CLICK, EVENT_SHOPSPOT_TOGGLE } from "@stackla/widget-utils/events"
+import { TagExtended, Sdk } from "@stackla/widget-utils"
+
+declare const sdk: Sdk
+
+export function registerExpandControlClickListener(component: InlineProductsComponent) {
+  const expandedControlEle = component.querySelector<HTMLElement>(".expand-control.expanded")
+  const collapsedControlEle = component.querySelector<HTMLElement>(".expand-control.collapsed")
+  const inlineProductsEle = component.querySelector<HTMLElement>(".swiper-inline-products")
+  const swiperPaginationEle = component.querySelector<HTMLElement>(".swiper-pagination")
+
+  const tile = component.tile
+  const videoContentEle = tile ? sdk.querySelector(`.video-content[tileid="${tile.id}"]`) : null
+
+  if (expandedControlEle && collapsedControlEle && inlineProductsEle && swiperPaginationEle) {
+    expandedControlEle.addEventListener("click", () => {
+      inlineProductsEle.style.visibility = "hidden"
+      expandedControlEle.style.visibility = "hidden"
+      swiperPaginationEle.style.visibility = "hidden"
+      collapsedControlEle.style.visibility = "visible"
+      if (videoContentEle && videoContentEle.getAttribute("id")?.includes("yt-frame")) {
+        videoContentEle.style.zIndex = "1"
+      }
+    })
+
+    collapsedControlEle.addEventListener("click", () => {
+      inlineProductsEle.style.visibility = "visible"
+      expandedControlEle.style.visibility = "visible"
+      swiperPaginationEle.style.visibility = "visible"
+      collapsedControlEle.style.visibility = "hidden"
+      if (videoContentEle && videoContentEle.getAttribute("id")?.includes("yt-frame")) {
+        videoContentEle.style.zIndex = "0"
+      }
+    })
+  }
+}
+
+export function registerShopspotClickListener(component: InlineProductsComponent) {
+  const swiperEle = component.querySelector<HTMLElement & { swiper: SwiperType }>(".swiper-inline-products")
+  const tile = component.tile
+  const swiper = swiperEle ? swiperEle.swiper : undefined
+
+  if (swiper && tile) {
+    const products: TagExtended[] = (tile.tags_extended || []).filter(({ type }) => type === "product")
+    if (products.length === 0) {
+      return
+    }
+
+    component.getEvents().addUgcEventListener(EVENT_SHOPSPOT_TOGGLE, event => {
+      const productId = (event as CustomEvent).detail.tagId
+      const selectedProductIndex = products.findIndex(product => +product.id === +productId)
+      if (selectedProductIndex === -1) {
+        throw new Error("Product not found")
+      }
+
+      swiper.slideTo(selectedProductIndex)
+    })
+  }
+}
+
+export function registerAddToCartButtonClickListener(component: InlineProductsComponent) {
+  const tile = component.tile
+  if (tile) {
+    const addToCartButtonEles = component.querySelectorAll(`.add-to-cart-button-wrap[data-tile-id="${tile.id}"`)
+
+    if (addToCartButtonEles) {
+      const parent = component.getPlacement().getNodeName()
+      addToCartButtonEles.forEach(addToCartButtonEle => {
+        addToCartButtonEle.addEventListener("click", () => {
+          const ugcProductsWrapEle = component
+            .getPlacement()
+            .querySelector(`.ugc-products-wrap[data-tile-id="${tile.id}"`)
+          if (ugcProductsWrapEle && parent) {
+            ugcProductsWrapEle.style.display = "flex"
+          }
+        })
+      })
+    }
+  }
+}
+
+export function registerProductHideIconClickListener(component: InlineProductsComponent) {
+  component.getEvents().addUgcEventListener(EVENT_PRODUCT_HIDE_ICON_CLICK, event => {
+    const tileId = (event as CustomEvent).detail.data.tileId
+    const ugcProductsWrapEle = component.getPlacement().querySelector(`.ugc-products-wrap[data-tile-id="${tileId}"`)
+
+    if (ugcProductsWrapEle) {
+      ugcProductsWrapEle.style.display = "none"
+    }
+  })
+}
+
+
+
+================================================
+File: inline-products/inline-products.template.tsx
+================================================
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import { Sdk, TagExtended, Tile } from "@stackla/widget-utils"
+import InlineProductsComponent from "./inline-products.component"
+
+type SwiperTemplateProps = {
+  tile: Tile
+  navArrows: boolean
+  prevIcon: string
+  nextIcon: string
+  sdk: Sdk
+}
+
+export function InlineProductsTemplate(sdk: Sdk, component: InlineProductsComponent) {
+  if (!component.tile) {
+    return <></>
+  }
+
+  return (
+    <ProductTagsSwiperTemplate
+      tile={component.tile}
+      navArrows={component.arrows}
+      prevIcon={component.prevIcon}
+      nextIcon={component.nextIcon}
+      sdk={sdk}
+    />
+  )
+}
+
+export function ProductTagsSwiperTemplate({ tile, navArrows, prevIcon, nextIcon, sdk }: SwiperTemplateProps) {
+  const products: TagExtended[] = (tile.tags_extended || []).filter(({ type }) => type === "product")
+
+  if (!tile || !products || !products.length) {
+    return <></>
+  }
+
+  return (
+    <>
+      {navArrows && (
+        <div class="swiper-inline-products-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon ${prevIcon}`} />
+        </div>
+      )}
+
+      <div class="expand-control expanded">
+        <div class="down-arrow"></div>
+        <span class="expand-control-label">Product</span>
+      </div>
+
+      <div class="swiper swiper-inline-products">
+        <div class="swiper-inline-products-wapper swiper-wrapper">
+          {products.map(product => (
+            <div class="tile-product swiper-slide">
+              <div class="tile-product-left-panel">
+                <img src={product.image_small_url} class="inline-product-img" />
+              </div>
+              <div class="tile-product-right-panel">
+                <ProductHeader product={product}></ProductHeader>
+                <ProductDescription product={product}></ProductDescription>
+                <ProductPrice product={product}></ProductPrice>
+                <ProductCTA sdk={sdk} product={product} tile={tile}></ProductCTA>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div class="expand-control collapsed">
+        <div class="up-arrow"></div>
+        <span class="expand-control-label">Product</span>
+      </div>
+
+      <div class="swiper-pagination"></div>
+
+      {navArrows && (
+        <div class="swiper-inline-products-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon ${nextIcon}`} />
+        </div>
+      )}
+    </>
+  )
+}
+
+function ProductHeader({ product }: { product: TagExtended }) {
+  if (!product || !product.tag) return <></>
+
+  return <div class="stacklapopup-inline-products-item-title">{product.tag}</div>
+}
+
+function ProductDescription({ product }: { product: TagExtended }) {
+  if (!product) return <></>
+
+  return <div class="stacklapopup-inline-products-item-description">{product.description}</div>
+}
+
+function ProductPrice({ product }: { product: TagExtended }) {
+  if (!product || !product.price) return <></>
+  const { price, currency } = product
+
+  return (
+    <div class="stacklapopup-inline-products-item-price">
+      {currency === "EUR" ? `${price}` : `${currency ?? ""}${price}`}
+    </div>
+  )
+}
+
+function ProductCTA({ sdk, product, tile }: { sdk: Sdk; product: TagExtended; tile: Tile }) {
+  const { custom_url, target, availability, cta_text = "Buy Now" } = product
+  const addToCart = sdk.getLoadedComponents().includes("add-to-cart")
+  let buttonText = cta_text
+  if (addToCart) {
+    buttonText = "Add to Cart"
+    return (
+      <div
+        className={`stacklapopup-inline-products-item-button-wrap add-to-cart-button-wrap ${availability ? "" : "disabled"}`}
+        data-tile-id={tile.id}>
+        <span className={`stacklapopup-inline-products-item-button ${availability ? "" : "disabled"}`}>
+          {buttonText}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <a
+      href={custom_url}
+      target={target}
+      className={`stacklapopup-inline-products-item-button-wrap ${availability ? "" : "disabled"}`}>
+      <span className={`stacklapopup-inline-products-item-button ${availability ? "" : "disabled"}`}>{buttonText}</span>
+    </a>
+  )
+}
+
+
+
+================================================
+File: load-more/index.ts
+================================================
+import LoadMoreComponent from "./load-more.component"
+
+export default LoadMoreComponent
+
+
+
+================================================
+File: load-more/load-more.component.ts
+================================================
+import LoadMoreTemplate from "./load-more.template"
+import StaticComponent from "../static.component"
+
+export default class LoadMoreComponent extends StaticComponent {
+  constructor() {
+    super("load-more")
+  }
+
+  public override async connectedCallback() {
+    this.setRenderHTML(LoadMoreTemplate)
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+  }
+
+  disconnectedCallback() {
+    this.shadowRoot?.replaceChildren()
+  }
+}
+
+try {
+  customElements.define("load-more", LoadMoreComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: load-more/load-more.template.tsx
+================================================
+import { createElement } from "@stackla/widget-utils/jsx"
+
+export default function LoadMoreTemplate() {
+  return (
+    <div id="buttons">
+      <a id="load-more">LOAD MORE</a>
+    </div>
+  )
+}
+
+
+
+================================================
+File: products/cross-sellers.listeners.tsx
+================================================
+import { TagExtended } from "@stackla/widget-utils"
+import ProductsComponent from "./products.component"
+import { CrossSellerProduct } from "./cross-sellers.type"
+
+export function loadCrossSellers(component: ProductsComponent, crossSellers: CrossSellerProduct[]) {
+  const currentTile = component.getTile()
+
+  if (!currentTile) {
+    throw new Error("Tile not found")
+  }
+
+  if (!crossSellers || !crossSellers.length) {
+    component.getTilesService().addProducts(currentTile, [])
+    return
+  }
+
+  const crossSellersAsProducts = crossSellers.map(crossSeller => {
+    const tag: TagExtended = {
+      id: crossSeller.product_id,
+      tag: crossSeller.name,
+      price: crossSeller.price.toString(),
+      custom_url: crossSeller.url,
+      image_small_url: crossSeller.image_url,
+      cta_text: crossSeller.cta_button_copy,
+      type: "product",
+      is_cross_seller: true,
+      description: crossSeller.description,
+      availability: crossSeller.skus.map(sku => sku.available).length
+    }
+
+    return tag
+  })
+
+  component.getTilesService().addProducts(currentTile, crossSellersAsProducts)
+
+  component.render()
+}
+
+
+
+================================================
+File: products/cross-sellers.type.ts
+================================================
+export interface DefaultSession {
+  setResponseMode: (mode: string) => DefaultSession
+  viewProduct: (productId: string) => DefaultSession
+  setPlacements: (placements: string[]) => DefaultSession
+  load: () => Promise<any>
+}
+
+export interface NostoAPI {
+  defaultSession: () => DefaultSession
+  internal: {
+    getSettings: () => any
+  }
+}
+
+export interface CrossSellerProduct {
+  name: string
+  description: string
+  url: string
+  categories: string[]
+  skus: Sku[]
+  product_id: string
+  price: number
+  price_currency_code: string
+  custom_fields: CustomFields2
+  tags1: string[]
+  tags2: string[]
+  tags3: any[]
+  brand: string
+  thumb_url: string
+  image_url: string
+  list_price: number
+  price_text: string
+  date_published: number
+  alternate_image_urls: string[]
+  list_price_text: string
+  cta_button_copy: string
+}
+
+export interface Sku {
+  name: string
+  id: string
+  available: boolean
+  price: number
+  custom_fields: CustomFields
+}
+
+export interface CustomFields {
+  COLOR?: string
+  SIZE?: string
+  Size?: string
+  Color?: string
+}
+
+export interface CustomFields2 {
+  "google-custom_product": string
+  productType: string
+}
+
+export interface Data {
+  products: CrossSellerProduct[]
+  result_id: string
+  additional_params: {
+    buy_button_copy: string
+  }
+  recommendations: Record<string, any>
+}
+
+
+
+================================================
+File: products/index.ts
+================================================
+import ProductsComponent from "./products.component"
+
+export default ProductsComponent
+
+
+
+================================================
+File: products/products.component.ts
+================================================
+import {
+  registerClickListener,
+  registerCTAClickListener,
+  registerHideIconClickListener,
+  registerNavigationListener,
+  registerProductChangedListener,
+  registerProductRecommendationsListener
+} from "./products.listeners"
+import productsTemplate from "./products.template"
+import {
+  EVENT_ADD_TO_CART_FAILED,
+  EVENT_PRODUCT_CLICK,
+  EVENT_PRODUCT_PINCLICK,
+  EVENT_PRODUCTS_UPDATED,
+  EVENT_SHOPSPOT_OPEN,
+  EVENT_SHOPSPOT_TOGGLE
+} from "@stackla/widget-utils/events"
+import type { TagExtended } from "@stackla/widget-utils"
+import { CrossSellerProduct, Data } from "./cross-sellers.type"
+import StaticComponent from "../static.component"
+import { loadCrossSellers } from "./cross-sellers.listeners"
+import { Sdk } from "@stackla/widget-utils"
+
+declare const NOSTO_ENDPOINT: string
+declare const sdk: Sdk
+
+export default class ProductsComponent extends StaticComponent {
+  constructor() {
+    super("ugc-products")
+  }
+
+  get downIcon() {
+    return this.getAttribute("down-icon") === "true"
+  }
+
+  get tile() {
+    const tileId = this.getAttribute("tile-id")
+    return tileId ? sdk.getTileById(tileId) : undefined
+  }
+
+  private registerEvents() {
+    registerClickListener(this)
+    registerProductChangedListener(this)
+    registerCTAClickListener(this)
+    registerHideIconClickListener(this)
+    registerNavigationListener(this)
+    registerProductRecommendationsListener(this)
+  }
+
+  private clearListeners() {
+    const events = this.getEvents()
+    events.removeListeners(
+      [
+        EVENT_ADD_TO_CART_FAILED,
+        EVENT_PRODUCT_PINCLICK,
+        EVENT_PRODUCT_CLICK,
+        EVENT_SHOPSPOT_TOGGLE,
+        EVENT_SHOPSPOT_OPEN
+      ],
+      this.getTileId()
+    )
+  }
+
+  public disconnectedCallback() {
+    this.clearListeners()
+  }
+
+  private async refresh() {
+    this.clearListeners()
+    await super.connectedCallback()
+    this.registerEvents()
+  }
+
+  public override async connectedCallback() {
+    const tilesService = this.getTilesService()
+    const tile = this.getTile()
+    this.setVisible(tile !== undefined)
+    this.setRenderHTML(productsTemplate)
+    await super.connectedCallback()
+    this.registerEvents()
+
+    if (tile && tilesService.getProductTagsFromTile(tile).length > 0) {
+      const crossSellersEnabled = sdk.getExpandedTileConfig().show_cross_sellers
+
+      if (crossSellersEnabled) {
+        await this.loadProductRecommendation()
+      }
+    }
+
+    await this.refresh()
+
+    this.getEvents().dispatchUgcEvent(
+      new CustomEvent(EVENT_PRODUCTS_UPDATED, {
+        detail: {
+          tileId: this.getTileId(),
+          target: this
+        }
+      })
+    )
+  }
+
+  private async loadNostoExternalScript() {
+    const merchantId = this.getPlacement().getWidgetContainer().merchantId
+    const nostoScript = document.createElement("script")
+    nostoScript.src = `${NOSTO_ENDPOINT}${merchantId}`
+    nostoScript.async = true
+    document.body.appendChild(nostoScript)
+
+    return new Promise<void>((resolve, reject) => {
+      nostoScript.onload = () => {
+        ;(function () {
+          const name = "nostojs"
+          window[name] =
+            window[name] ||
+            function (cb: any) {
+              // @ts-expect-error - Object is of type unknown
+              ;(window[name].q = window[name].q || []).push(cb)
+            }
+
+          resolve()
+        })()
+      }
+
+      nostoScript.onerror = e => {
+        console.error("Failed to load Nosto script", e)
+        reject()
+      }
+    })
+  }
+
+  private async sanityCheckNosto(retries = 0) {
+    const nostoJS = window.nostojs
+    if (nostoJS) {
+      return true
+    }
+
+    if (retries >= 5) {
+      console.error("Nosto script not loaded after 5 retries")
+      return false
+    }
+
+    return new Promise(resolve => {
+      console.log(`Nosto script not loaded, retrying... (${retries + 1})`)
+      setTimeout(() => {
+        resolve(this.sanityCheckNosto(retries + 1))
+      }, 1000)
+    })
+  }
+
+  private async initiateNosto(products: TagExtended[]) {
+    const scriptTag = document.querySelector(`script[src*="${NOSTO_ENDPOINT}"]`)
+    if (!scriptTag || !window.nostojs) {
+      await this.loadNostoExternalScript()
+    }
+
+    const placementId = "stacklapopup-product-recommendation"
+    const nostoJS = window.nostojs
+
+    if (!nostoJS) {
+      await this.sanityCheckNosto()
+    }
+
+    return new Promise(resolve => {
+      // @ts-expect-error - Object is of type unknown
+      nostoJS((api: NostoAPI) => {
+        const apiSetting = api?.internal?.getSettings?.()
+        const extProductId = products[0]?.ext_product_id ?? ""
+
+        api
+          ?.defaultSession?.()
+          .setResponseMode("JSON_170x170")
+          .viewProduct(extProductId)
+          .setPlacements([placementId])
+          .load()
+          .then((data: Data) => {
+            const recommendation = data?.recommendations?.[placementId] || {}
+            const products = (recommendation?.products || []).map((product: CrossSellerProduct) => {
+              let cta_btn_copy = "Buy Now"
+              const extraAttribute =
+                apiSetting && apiSetting.nostoRefParam ? `${apiSetting.nostoRefParam}=${recommendation.result_id}` : ""
+
+              product.url = `${product.url}${extraAttribute}`
+              if (recommendation?.additional_params?.buy_button_copy) {
+                cta_btn_copy = recommendation.additional_params.buy_button_copy
+              }
+              return { ...product, cta_button_copy: cta_btn_copy }
+            })
+
+            resolve(products)
+          })
+      })
+    })
+  }
+
+  private async loadProductRecommendation() {
+    const tiles = this.getPlacement().getTilesService()
+    const tileId = this.getTileId()
+    const products = tiles.getProductTagsFromTile(this.getTile())
+
+    if (!products.length) {
+      return
+    }
+
+    try {
+      const crossSellers: CrossSellerProduct[] =
+        sdk.getState(`crossSellers-${tileId}`) ?? (await this.initiateNosto(products))
+      sdk.setState(`crossSellers-${tileId}`, crossSellers)
+
+      loadCrossSellers(this, crossSellers)
+    } catch (e) {
+      console.error("Failed to load product recommendations", e)
+    }
+
+    return
+  }
+
+  public override async render() {
+    await super.render(this)
+  }
+}
+
+try {
+  customElements.define("ugc-products", ProductsComponent)
+} catch (err) {
+  // ignore
+}
+
+
+
+================================================
+File: products/products.listeners.tsx
+================================================
+import ProductsComponent from "./products.component"
+import {
+  EVENT_PRODUCT_CLICK,
+  EVENT_PRODUCT_ACTION_CLICK,
+  EVENT_SHOPSPOT_OPEN,
+  EVENT_PRODUCT_HIDE_ICON_CLICK
+} from "@stackla/widget-utils/events"
+import { createElement } from "@stackla/widget-utils/jsx"
+import { ProductHeader } from "./products.template"
+import { SwiperType } from "@stackla/widget-utils/types"
+
+function getProductDivs(component: ProductsComponent) {
+  const products = component.querySelector(".stacklapopup-products-item-content")
+
+  if (!products) {
+    throw new DOMException("No products found")
+  }
+
+  return products
+}
+
+function getProductItems(component: ProductsComponent) {
+  return component.querySelectorAll<HTMLElement>(".stacklapopup-products-item")
+}
+
+function updateProductDetails(component: ProductsComponent, selectedProductId: string) {
+  const tile = component.getTile()
+
+  if (!tile) {
+    console.error("No tile found")
+    return
+  }
+
+  const product = component.getTilesService().getProductById(selectedProductId, tile)
+  if (!product) return
+
+  const componentHeader = component.querySelector(".stacklapopup-products-header")
+
+  if (!componentHeader) {
+    console.error("No header found")
+    return
+  }
+
+  componentHeader.innerHTML = ""
+  componentHeader.append(<ProductHeader product={product} />)
+}
+
+function sendShopspotFlyoutEvent(component: ProductsComponent, productId: string) {
+  component.getEvents().dispatchUgcEvent(
+    new CustomEvent(EVENT_SHOPSPOT_OPEN, {
+      detail: {
+        data: {
+          widgetId: component.getPlacement().getWidgetId(),
+          tileData: component.getTilesService().getTile(),
+          productTag: productId
+        }
+      }
+    }),
+    `${component.getTileId()}-${productId}`
+  )
+}
+
+function setActiveProduct(component: ProductsComponent, productId: string | number) {
+  const activeClass = "stacklapopup-products-item-active"
+  const productItems = getProductItems(component)
+
+  productItems.forEach(product => {
+    product.classList.remove(activeClass)
+    if (product.getAttribute("data-tag-id") === productId.toString()) {
+      product.classList.add(activeClass)
+    }
+  })
+}
+
+export function registerClickListener(component: ProductsComponent) {
+  const productItems = getProductItems(component)
+
+  const handleClick = (event: Event, productId: string) => {
+    const tile = component.getTilesService().getTile()
+    const selectedProduct = component.getTilesService().getSelectedProduct()
+
+    component.getEvents().dispatchUgcEvent(
+      new CustomEvent(EVENT_PRODUCT_CLICK, {
+        detail: {
+          target: event.target,
+          data: {
+            widgetId: component.getPlacement().getWidgetId(),
+            tileData: tile,
+            productTag: selectedProduct
+          }
+        }
+      }),
+      `${component.getTileId()}-${productId}`
+    )
+  }
+
+  const registerListeners = (items: NodeListOf<HTMLElement>) => {
+    items.forEach(product => {
+      const productId = product.getAttribute("data-tag-id") || ""
+      product.onclick = e => handleClick(e, productId)
+    })
+  }
+
+  registerListeners(productItems)
+
+  const ugcProducts = component
+
+  if (ugcProducts) {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+          const newProductItems = getProductItems(component)
+          registerListeners(newProductItems)
+        }
+      })
+    })
+
+    // Start observing the expanded-tiles element for changes
+    observer.observe(ugcProducts, { childList: true, subtree: true })
+  }
+}
+
+export function registerCTAClickListener(component: ProductsComponent) {
+  const cta = component.querySelector(".stacklapopup-products-item-button-wrap") as HTMLElement
+
+  if (!cta) {
+    return
+  }
+
+  const handleClick = (event: Event, productId: string) => {
+    component.getEvents().dispatchUgcEvent(
+      new CustomEvent(EVENT_PRODUCT_ACTION_CLICK, {
+        detail: {
+          target: event.target,
+          data: {
+            widgetId: component.getPlacement().getWidgetId(),
+            tileData: component.getTilesService().getTile(),
+            productTag: component.getTilesService().getSelectedProduct()
+          }
+        }
+      }),
+      `${component.getTileId()}-${productId}`
+    )
+  }
+
+  const productId = cta.parentElement?.getAttribute("data-tag-id") || ""
+
+  cta.onclick = e => handleClick(e, productId)
+}
+
+export function registerHideIconClickListener(component: ProductsComponent) {
+  const hideIconEle = component.querySelector<HTMLElement>(".down-arrow-thin")
+
+  if (!hideIconEle) {
+    return
+  }
+
+  const handleClick = () => {
+    component.getEvents().dispatchUgcEvent(
+      new CustomEvent(EVENT_PRODUCT_HIDE_ICON_CLICK, {
+        detail: {
+          data: {
+            tileId: component.getTileId()
+          }
+        }
+      })
+    ),
+      component.getTileId()
+  }
+
+  hideIconEle.onclick = () => handleClick()
+}
+
+function removeActiveClass(component: ProductsComponent) {
+  const productItems = getProductItems(component)
+  productItems.forEach(product => {
+    product.classList.remove("stacklapopup-products-item-active")
+  })
+}
+
+function updateProductDescriptions(component: ProductsComponent, selectedProductId: string) {
+  const tile = component.getTile()
+  if (!tile) {
+    console.error("No tile found")
+    return
+  }
+
+  const product = component.getTilesService().getProductById(selectedProductId, tile)
+  if (!product) {
+    console.error("No product found", product)
+    return
+  }
+
+  const productItems = component.querySelectorAll(".stacklapopup-products-item-content")
+
+  productItems.forEach(productItem => {
+    if (productItem.getAttribute("data-tag-id") === selectedProductId) {
+      productItem.classList.add("stacklapopup-products-item-active")
+    } else {
+      productItem.classList.remove("stacklapopup-products-item-active")
+    }
+  })
+}
+
+export function resetToFirstProduct(component: ProductsComponent) {
+  const productItems = getProductItems(component)
+  const firstProduct = productItems[0]
+
+  if (!firstProduct) {
+    console.warn("No products found in component: cannot reset to first product.")
+    return
+  }
+
+  const productId = firstProduct.getAttribute("data-tag-id")
+  if (!productId) {
+    console.warn("No product ID found: cannot reset to first product.")
+    return
+  }
+
+  updateSelectedProduct(component, productId)
+
+  const swiperEle = component.querySelector<HTMLElement & { swiper: SwiperType }>(".swiper-expanded-product-recs")
+  swiperEle?.swiper?.slideTo(0)
+}
+
+export function registerProductChangedListener(component: ProductsComponent) {
+  resetToFirstProduct(component)
+
+  const products = getProductItems(component)
+
+  products.forEach(product => {
+    const productId = product.getAttribute("data-tag-id")
+
+    component.getEvents().addUgcEventListener(
+      EVENT_PRODUCT_CLICK,
+      event => {
+        const clickTarget = (event as CustomEvent).detail.target as HTMLElement
+        const closestProduct = clickTarget.closest(".stacklapopup-products-item")
+        const productId = closestProduct?.getAttribute("data-tag-id")
+
+        if (!closestProduct || !productId) {
+          console.warn("No closest product found")
+          return
+        }
+
+        updateSelectedProduct(component, productId)
+      },
+      `${component.getTileId()}-${productId}`
+    )
+  })
+}
+
+export function registerNavigationListener(component: ProductsComponent) {
+  const nextButton = component.querySelector(".swiper-exp-product-recs-button-next")
+  const preButton = component.querySelector(".swiper-exp-product-recs-button-prev")
+
+  if (!nextButton || !preButton) {
+    console.warn("Could not find next/pre buttons in products component")
+    return
+  }
+
+  const productItemsEle = getProductItems(component)
+
+  nextButton.addEventListener("click", () => {
+    handleNavigationClick(component, productItemsEle, "next")
+  })
+
+  preButton.addEventListener("click", () => {
+    handleNavigationClick(component, productItemsEle, "prev")
+  })
+}
+
+function handleNavigationClick(
+  component: ProductsComponent,
+  productItemsEle: NodeListOf<HTMLElement>,
+  direction: "next" | "prev"
+) {
+  const swiperCrossSell = component.querySelector<HTMLElement & { swiper: SwiperType }>(".swiper-expanded-product-recs")
+
+  if (!swiperCrossSell) {
+    console.warn("swiper-expanded-product-recs element not found")
+    return
+  }
+
+  const swiper = swiperCrossSell.swiper
+  if (!swiper) {
+    console.warn("swiper not found")
+    return
+  }
+  const activeProductEle = component.querySelector(".stacklapopup-products-item.stacklapopup-products-item-active")
+
+  const activateSlideIndex = Array.from(productItemsEle).findIndex(productItem => productItem === activeProductEle)
+  let nextSlideIndex = direction === "next" ? activateSlideIndex + 1 : activateSlideIndex - 1
+
+  if (direction === "next" && nextSlideIndex === productItemsEle.length) {
+    nextSlideIndex = 0
+  } else if (direction === "prev" && nextSlideIndex === -1) {
+    nextSlideIndex = productItemsEle.length - 1
+  }
+
+  swiper?.slideTo(nextSlideIndex)
+
+  const productId = productItemsEle[nextSlideIndex]?.getAttribute("data-tag-id")
+
+  if (!productId) {
+    throw new Error("product not found - could not update product selection")
+  }
+
+  updateSelectedProduct(component, productId)
+}
+
+function updateSelectedProduct(component: ProductsComponent, productId: string) {
+  if (!productId) {
+    throw new Error("Product ID not found")
+  }
+
+  const products = getProductDivs(component)
+  removeActiveClass(component)
+  products.classList.add("stacklapopup-products-item-active")
+
+  component.getTilesService().setSelectedProductId(productId)
+  setActiveProduct(component, productId)
+  updateProductDetails(component, productId)
+  sendShopspotFlyoutEvent(component, productId)
+  updateProductDescriptions(component, productId)
+}
+
+export function registerProductRecommendationsListener(component: ProductsComponent) {
+  const recommendationsButton = component.querySelector(".recommendations-text")
+
+  if (!recommendationsButton) {
+    console.warn("Could not find see recommendations button in products component")
+    return
+  }
+
+  const productItemsEle = Array.from(getProductItems(component))
+
+  const firstRecommendationProduct = productItemsEle.find(product => product.classList.contains("cross-seller"))
+
+  if (!firstRecommendationProduct) {
+    console.warn("No first recommendation product found")
+    return
+  }
+  const indexOfFirstRecommendation = productItemsEle.indexOf(firstRecommendationProduct)
+
+  recommendationsButton.addEventListener("click", () => {
+    const swiperCrossSell = component.querySelector<HTMLElement & { swiper: SwiperType }>(
+      ".swiper-expanded-product-recs"
+    )
+
+    if (!swiperCrossSell) {
+      console.warn("swiper-expanded-product-recs element not found")
+      return
+    }
+
+    const swiper = swiperCrossSell.swiper
+    if (!swiper) {
+      console.warn("swiper not found")
+      return
+    }
+
+    swiper?.slideTo(indexOfFirstRecommendation)
+
+    const productId = productItemsEle[indexOfFirstRecommendation]?.getAttribute("data-tag-id")
+
+    if (!productId) {
+      throw new Error("product not found - could not update product selection")
+    }
+
+    updateSelectedProduct(component, productId)
+  })
+}
+
+
+
+================================================
+File: products/products.template.tsx
+================================================
+import { Sdk, TagExtended, Tile, Product } from "@stackla/widget-utils"
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import ProductsComponent from "./products.component"
+
+declare const sdk: Sdk
+
+function getPriceWithFallback(price: string) {
+  const parsedFloat = parseFloat(price)
+
+  if (isNaN(parsedFloat)) {
+    return ""
+  }
+
+  return parsedFloat.toFixed(2)
+}
+
+export function ProductHeader({ product }: { product: TagExtended }) {
+  if (!product) return <></>
+
+  const { id, tag, custom_url, target, price, currency } = product
+
+  const parsedPrice = price ? getPriceWithFallback(price) : ""
+
+  const titleContent = tag && (
+    <a href={custom_url} target={target} class="stacklapopup-products-item-title">
+      {tag}
+    </a>
+  )
+
+  const priceContent = price && (
+    <div class="stacklapopup-products-item-price">
+      {currency === "EUR" ? `${parsedPrice}` : `${currency ?? ""}${parsedPrice}`}
+    </div>
+  )
+
+  return (
+    <div class="stacklapopup-products-header">
+      <div class="stacklapopup-products-item-header stacklapopup-products-item-active" data-tag-id={id}>
+        {titleContent}
+        {priceContent}
+      </div>
+    </div>
+  )
+}
+
+export function TopSection({ component }: { component: ProductsComponent }) {
+  if (component.downIcon) {
+    return (
+      <div class="top-section">
+        <div class="down-arrow-thin"></div>
+      </div>
+    )
+  }
+
+  return <></>
+}
+
+export function ProductButton({ product, style = {} }: { product: TagExtended; style?: object }) {
+  const { custom_url, target, availability, cta_text = "Buy Now" } = product
+  const ctaLabel = cta_text?.trim() || "Buy Now"
+  const buttonClass = `stacklapopup-products-item-button${availability ? "" : " disabled"}`
+  const buttonContent = <span class={buttonClass}>{ctaLabel}</span>
+  return (
+    <a
+      style={style}
+      data-product-id={product.id}
+      href={custom_url}
+      target={target}
+      class="stacklapopup-products-item-button-wrap">
+      {buttonContent}
+    </a>
+  )
+}
+
+export function ProductCTA({ sdk, product, tile }: { sdk: Sdk; product: TagExtended; tile: Tile }) {
+  const { custom_url, target, availability, cta_text = "Buy Now", currency, id } = product
+  const addToCart = sdk.getLoadedComponents().includes("add-to-cart")
+  const parentNodeId = sdk.getNodeId()
+  const ctaLabel = cta_text?.trim() || "Buy Now"
+  if (addToCart) {
+    return (
+      <>
+        <add-to-cart
+          productId={id}
+          id={`stacklapopup-add-to-cart-${id}-${tile.id}`}
+          url={custom_url}
+          target={target}
+          availability={availability}
+          cta={cta_text}
+          currency={currency}
+          tile-id={tile.id}
+          parent={parentNodeId}></add-to-cart>
+      </>
+    )
+  }
+
+  return (
+    <a href={custom_url} target={target} class="stacklapopup-products-item-button-wrap">
+      <span className={`stacklapopup-products-item-button${availability ? "" : " disabled"}`}>{ctaLabel}</span>
+    </a>
+  )
+}
+
+function parseDescription(text: string) {
+  const decodedText = text.replace(/&nbsp;/g, " ")
+
+  const formatted = decodedText.replace(/([.])/g, "$1\n\n").trim()
+
+  return formatted
+}
+
+export function ProductDetails({ product, tile }: { product: TagExtended; tile: Tile }) {
+  const selectedProductId = sdk.getFirstProductInTile(tile)?.id ?? null
+  const { custom_url, description = "Buy Now", id } = product
+
+  const descriptionContent = description ? (
+    <p
+      class="stacklapopup-products-item-description"
+      dangerouslySetInnerHTML={{ __html: parseDescription(description) }}></p>
+  ) : (
+    <></>
+  )
+
+  const itemActive = id === selectedProductId ? "stacklapopup-products-item-active" : ""
+
+  return (
+    <div className={`stacklapopup-products-item-content ${itemActive}`} data-tag-id={id} data-custom-url={custom_url}>
+      <div className="stacklapopup-products-item-description-wrapper">{descriptionContent}</div>
+      <ProductCTA tile={tile} sdk={sdk} product={product}></ProductCTA>
+    </div>
+  )
+}
+
+export function ProductWrapper({
+  products,
+  selectedProductId
+}: {
+  products: TagExtended[]
+  selectedProductId: string
+}) {
+  return (
+    <>
+      {products.map(({ id, image_small_url, is_cross_seller }) => (
+        <div className={`swiper-slide stacklapopup-product-wrapper ${is_cross_seller ? "recommendation-product" : ""}`}>
+          {is_cross_seller && (
+            <div className="stacklapopup-products-item-image-recommendation-label">
+              <p>
+                <span class="icon-like"></span> great with
+              </p>
+            </div>
+          )}
+          <div
+            className={`stacklapopup-products-item ${is_cross_seller ? "cross-seller" : ""} ${id == selectedProductId ? "stacklapopup-products-item-active" : ""}`}
+            data-tag-id={id}>
+            <img
+              loading="lazy"
+              class="stacklapopup-products-item-image"
+              src={image_small_url}
+              onerror="this.src='https://placehold.co/160x200'"
+            />
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+export function ProductImages({
+  products,
+  selectedProduct
+}: {
+  products: TagExtended[]
+  selectedProduct: TagExtended
+}) {
+  return (
+    <>
+      {products.length > 3 ? <div class="recommendations-text">see recommendations</div> : <></>}
+      <div class={`stacklapopup-product-images-wrapper ${products.length <= 3 ? "arrows-hidden" : ""}`}>
+        <div className={`swiper swiper-expanded-product-recs stacklapopup-products`}>
+          <div class="swiper-wrapper">
+            {selectedProduct && (
+              <ProductWrapper products={products} selectedProductId={selectedProduct.id}></ProductWrapper>
+            )}
+          </div>
+        </div>
+        {products.length > 1 || window.screen.width < 500 ? (
+          <>
+            <div class="swiper-exp-product-recs-button-prev swiper-button-prev">
+              <span class="swiper-nav-icon icon-prev" />
+            </div>
+            <div class="swiper-exp-product-recs-button-next swiper-button-next">
+              <span class="swiper-nav-icon icon-next" />
+            </div>
+          </>
+        ) : (
+          <></>
+        )}
+      </div>
+    </>
+  )
+}
+
+export function getContentGroupProducts(tile: Tile): Product[] {
+  const products = Object.values(tile.carousel_children ?? [])
+    .flatMap(t => t.tags_extended || [])
+    .filter(tag => tag.type === "product") as Product[]
+
+  const uniqueProducts = Array.from(new Map(products.map(product => [product.id, product])).values())
+
+  return uniqueProducts
+}
+
+export default function ProductsTemplate(sdk: Sdk, component: ProductsComponent) {
+  const tileId = component.getTileId()
+  const tile = sdk.getTileById(tileId)
+  const selectedProductState = sdk.getSelectedProduct()
+  const { show_carousel_grouping } = sdk.getExpandedTileConfig()
+
+  if (!tile) {
+    throw new Error("No tile found")
+  }
+
+  let products = sdk.getProductTagsFromTile(tile)
+
+  if (tile.carousel_children && tile.carousel_children.length && show_carousel_grouping) {
+    products = getContentGroupProducts(tile)
+  }
+
+  if (!products.length) {
+    console.warn("ProductsTemplate no valid products found")
+    return <></>
+  }
+
+  const selectedProductById = selectedProductState
+    ? products.find(({ id }) => id == selectedProductState.id.toString())
+    : null
+
+  const selectedProduct: TagExtended = selectedProductById || products[0]
+  const mappedProducts = products.map(product => <ProductDetails product={product} tile={tile}></ProductDetails>)
+
+  return (
+    <>
+      <TopSection component={component}></TopSection>
+      <ProductHeader product={selectedProduct}></ProductHeader>
+      <ProductImages products={products} selectedProduct={selectedProduct}></ProductImages>
+      {mappedProducts}
+    </>
+  )
+}
+
+
+
+================================================
+File: share-menu/index.ts
+================================================
+import ShareMenuComponent from "./share-menu.component"
+
+export default ShareMenuComponent
+
+
+
+================================================
+File: share-menu/share-menu.component.ts
+================================================
+import StaticComponent from "../static.component"
+import { ShareMenuTemplate } from "./share-menu.template"
+import { registerShareMenuListeners } from "./listeners/share-menu.listener"
+import { Sdk } from "@stackla/widget-utils"
+
+const COMPONENT_NAME = "share-menu"
+
+declare const sdk: Sdk
+
+export default class ShareMenuComponent extends StaticComponent {
+  constructor() {
+    super(COMPONENT_NAME)
+  }
+
+  static override get observedAttributes() {
+    return ["tile-id", "should-render", "source-id", "theme"]
+  }
+
+  get theme() {
+    return this.getAttribute("theme") || "light"
+  }
+
+  public override async connectedCallback() {
+    const tileId = this.getAttribute("tile-id")
+
+    if (!tileId) {
+      console.warn("Tile not found in share component", tileId)
+      return
+    }
+
+    const tile = await sdk.waitForTile(tileId)
+
+    if (!tile) {
+      console.warn("Tile not found", tileId)
+      return
+    }
+
+    this.setRenderHTML(ShareMenuTemplate)
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+    await super.connectedCallback()
+    this.registerListener()
+  }
+
+  public override async render() {
+    await super.render(this)
+  }
+
+  get tile() {
+    const tileId = this.getAttribute("tile-id")
+    return tileId ? sdk.getTileById(tileId) : undefined
+  }
+
+  registerListener() {
+    // A unique event identifier. If no provided, fallback to tileId
+    const sourceId = this.getAttribute("source-id")
+    const tileId = this.getAttribute("tile-id")
+    const eventId = sourceId || tileId
+    const shareButton = this.querySelector<HTMLElement>(".share-button")
+    eventId && shareButton && registerShareMenuListeners(sdk, eventId, shareButton, this)
+  }
+}
+
+try {
+  customElements.define(COMPONENT_NAME, ShareMenuComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: share-menu/share-menu.template.tsx
+================================================
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import { Sdk, Tile } from "@stackla/widget-utils"
+import ShareMenuComponent from "./share-menu.component"
+
+export function ShareMenuTemplate(_sdk: Sdk, component: ShareMenuComponent) {
+  const tile = component.tile
+  const theme = component.theme
+
+  if (!tile) {
+    console.warn("Tile not found", component.getAttribute("tile-id"))
+    return <></>
+  }
+
+  return (
+    <>
+      <div class="share-button">
+        <span class={`widget-icon icon-share ${theme}`} alt="Share button"></span>
+      </div>
+      <dialog class="share-socials-popup-wrapper">
+        <div class="share-socials-popup">
+          <a class="share-modal-exit" href="#">
+            <span class="widget-icon close-white" alt="Exit button"></span>
+          </a>
+          <div class="popup-text">Share Now</div>
+          <div class="ugc-inline-share-buttons">
+            <MenuLink icon="facebook" tile={tile} />
+            <MenuLink icon="x" tile={tile} />
+            <MenuLink icon="pinterest" tile={tile} />
+            <MenuLink icon="linkedin" tile={tile} />
+            <MenuLink icon="email" tile={tile} />
+          </div>
+          <div class="url-copy">
+            <div class="url-controls">
+              <input class="share-url" type="text" id="share-url" value={tile.original_url} readonly />
+              <button class="copy-button" data-action="copy">
+                Copy
+              </button>
+            </div>
+            <span class="copy-status"></span>
+          </div>
+        </div>
+      </dialog>
+    </>
+  )
+}
+
+function MenuLink({ tile, icon }: { tile: Tile; icon: string }) {
+  const url = new URL(`https://www.addtoany.com/add_to/${icon}`)
+  url.searchParams.append("linkurl", tile.original_url)
+  if (tile.name) {
+    url.searchParams.append("linkname", tile.name)
+  }
+  const href = url.href
+  const alt = `${icon} logo`
+
+  return <a href={href} target="_blank" className={`widget-icon icon-${icon}-share`} alt={alt} />
+}
+
+
+
+================================================
+File: share-menu/listeners/clipboard-polyfills.ts
+================================================
+// clipboard copy polyfill
+
+export function useClipboard() {
+  if (navigator.clipboard) {
+    return (inputElement: HTMLInputElement) => {
+      return navigator.clipboard.writeText(inputElement.value)
+    }
+  }
+
+  // compatibility with older browsers
+  return (inputElement: HTMLInputElement) =>
+    new Promise<void>(resolve => {
+      inputElement.select()
+      document.execCommand("copy")
+      resolve()
+    })
+}
+
+
+
+================================================
+File: share-menu/listeners/share-menu.listener.ts
+================================================
+import { Sdk } from "@stackla/widget-utils"
+import { useClipboard } from "./clipboard-polyfills"
+import { EVENT_SHARE_MENU_CLOSED, EVENT_SHARE_MENU_OPENED } from "@stackla/widget-utils/events"
+
+export async function copyToClipboard(inputElement: HTMLInputElement) {
+  try {
+    const writeText = useClipboard()
+    await writeText(inputElement)
+    const buttonElement = inputElement.closest(".url-copy")?.querySelector<HTMLElement>(".copy-button")
+    if (buttonElement) {
+      buttonElement.textContent = "Copied"
+      setInterval(() => {
+        buttonElement.textContent = "Copy"
+      }, 2000)
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to copy text: ", err)
+  }
+}
+
+function addShareMenuListeners(sdk: Sdk, sourceId: string, shareMenuWrapper: HTMLDialogElement, tileId: string | null) {
+  // Exit button listener
+  const shareExitButton = shareMenuWrapper.querySelector<HTMLElement>(".share-modal-exit")
+  const inlineProductsEle = sdk.querySelector<HTMLElement>(`inline-products[tile-id="${tileId}"]`)
+  const shopspotIconEles = sdk.querySelectorAll<HTMLElement>(".fs-tag")
+
+  if (shareExitButton) {
+    shareExitButton.addEventListener("click", shareExitButtonEvent => {
+      shareExitButtonEvent.preventDefault()
+      shareExitButtonEvent.stopPropagation()
+      shareMenuWrapper.style.display = "none"
+      shareMenuWrapper.close()
+      if (inlineProductsEle) {
+        inlineProductsEle.style.removeProperty("display")
+      }
+
+      if (shopspotIconEles) {
+        shopspotIconEles.forEach(ele => {
+          ele.style.removeProperty("z-index")
+        })
+      }
+
+      sdk.triggerEvent(EVENT_SHARE_MENU_CLOSED, { sourceId })
+    })
+  }
+
+  // copy to clipboard listener
+  const clipboardElement = shareMenuWrapper.querySelector<HTMLElement>(".url-copy .copy-button")
+  const shareUrlElement = shareMenuWrapper.querySelector<HTMLInputElement>(".url-copy .share-url")
+
+  if (shareUrlElement && clipboardElement) {
+    clipboardElement.addEventListener("click", () => copyToClipboard(shareUrlElement))
+  }
+}
+
+export function registerShareMenuListeners(
+  sdk: Sdk,
+  sourceId: string,
+  shareButtonElement: HTMLElement,
+  parent: Element
+) {
+  shareButtonElement.addEventListener("click", (shareButtonEvent: MouseEvent) => {
+    shareButtonEvent.preventDefault()
+    shareButtonEvent.stopPropagation()
+    const wrapper = parent.querySelector<HTMLDialogElement>(".share-socials-popup-wrapper")
+    const panelRightWrapper = parent.querySelector<HTMLElement>(".panel-right-wrapper")
+    const tileId = parent.getAttribute("tile-id")
+    const inlineProductsEle = sdk.querySelector<HTMLElement>(`inline-products[tile-id="${tileId}"]`)
+    const shopspotIconEles = sdk.querySelectorAll<HTMLElement>(".fs-tag")
+
+    if (!wrapper) {
+      throw new Error("Share menu wrapper not found")
+    }
+    wrapper.style.display = "flex"
+    wrapper.showModal()
+
+    if (panelRightWrapper) {
+      panelRightWrapper.style.overflow = "unset"
+    }
+
+    if (inlineProductsEle) {
+      inlineProductsEle.style.display = "none"
+    }
+
+    if (shopspotIconEles) {
+      shopspotIconEles.forEach(ele => {
+        ele.style.zIndex = "0"
+      })
+    }
+
+    sdk.triggerEvent(EVENT_SHARE_MENU_OPENED, { sourceId })
+
+    addShareMenuListeners(sdk, sourceId, wrapper, tileId)
+  })
+}
+
+
+
+================================================
+File: shopspots/index.ts
+================================================
+import ShopspotIconComponent from "./components/shopspot-icon.component"
+
+export default {
+  ShopspotIconComponent
+}
+
+
+
+================================================
+File: shopspots/components/shopspot-base.component.ts
+================================================
+import StaticComponent from "../../static.component"
+
+export class ShopspotBaseComponent extends StaticComponent {
+  constructor(componentName?: string) {
+    super(componentName ?? "shopspot-base")
+  }
+
+  static override get observedAttributes() {
+    return ["parent", "tile-id", "mode"]
+  }
+
+  public override getTileId() {
+    return this.getAttribute("tile-id") ?? ""
+  }
+
+  public getMode() {
+    return this.getAttribute("mode")
+  }
+
+  public override async connectedCallback() {
+    const parent = this.getAttribute("parent")
+
+    if (parent) {
+      this.widgetComponentSelector = parent || ""
+    }
+
+    await this.render(this)
+  }
+}
+
+
+
+================================================
+File: shopspots/components/shopspot-icon.component.ts
+================================================
+import renderHTML from "../templates/shopspot-icon.template"
+import { ShopspotBaseComponent } from "./shopspot-base.component"
+import { registerShopspotTagClick } from "../listeners/shopspot.listeners"
+
+const COMPONENT_NAME = "shopspot-icon"
+
+export default class ShopspotIconComponent extends ShopspotBaseComponent {
+  constructor() {
+    super(COMPONENT_NAME)
+  }
+
+  public getShowToolTip() {
+    return this.getAttribute("show-tooltip") ?? "true"
+  }
+
+  public override async connectedCallback() {
+    const tileId = this.getTileId()
+
+    super.setVisible(tileId !== "" || this.getTilesService().getTile() !== undefined)
+    this.setRenderHTML(renderHTML)
+
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+
+    await super.connectedCallback()
+
+    registerShopspotTagClick(this)
+  }
+}
+
+try {
+  customElements.define(COMPONENT_NAME, ShopspotIconComponent)
+} catch (error) {
+  if (error instanceof Error && !error.message.includes("already been used")) {
+    throw error
+  }
+}
+
+
+
+================================================
+File: shopspots/listeners/shopspot.listeners.ts
+================================================
+import { EVENT_SHOPSPOT_TOGGLE } from "@stackla/widget-utils/events"
+import ShopspotIconComponent from "../components/shopspot-icon.component"
+
+function registerShopspotItemClickHandler(shopspotElement: HTMLElement, component: ShopspotIconComponent) {
+  const tiles = component.getPlacement().getTilesService()
+  const tagId = shopspotElement.getAttribute("data-tag-id")
+
+  shopspotElement.onclick = () => {
+    const shopspotTileEvent = new CustomEvent(EVENT_SHOPSPOT_TOGGLE, {
+      detail: {
+        tile: tiles.getTile(),
+        tagId
+      }
+    })
+    component.getEvents().dispatchUgcEvent(shopspotTileEvent)
+
+    const expandedTileWrapper = component.getPlacement().querySelector("expanded-tiles")
+    const productWrapper = expandedTileWrapper?.shadowRoot?.querySelector("ugc-products")
+    const allProducts = productWrapper?.shadowRoot?.querySelectorAll(".stacklapopup-products-item")
+
+    const productActiveClass = "stacklapopup-products-item-active"
+    allProducts?.forEach(item => {
+      item.classList.remove(productActiveClass)
+    })
+
+    const activeContent = productWrapper?.shadowRoot?.querySelector(
+      ".stacklapopup-products-item-content.stacklapopup-products-item-active"
+    )
+
+    const product = productWrapper?.shadowRoot?.querySelector(`.stacklapopup-products-item[data-tag-id="${tagId}"]`)
+    product?.classList.add(productActiveClass)
+
+    const productContent = productWrapper?.shadowRoot?.querySelector(
+      `.stacklapopup-products-item-content[data-tag-id="${tagId}"]`
+    )
+
+    activeContent?.classList.remove(productActiveClass)
+    productContent?.classList.add(productActiveClass)
+
+    if (!tagId) {
+      throw new Error(`shopspot tag Id not available`)
+    }
+
+    const showToolTip = component.getShowToolTip()
+    if (showToolTip === "true") {
+      const tooltipElement = component.querySelector<HTMLElement>(`.tooltip.tag-${tagId}`)
+
+      if (!tooltipElement) {
+        throw new Error(`Tooltip element not found for tagId ${tagId}`)
+      }
+
+      const computedDisplay = window.getComputedStyle(tooltipElement)["display"]
+
+      tooltipElement.style.display = computedDisplay === "none" ? "block" : "none"
+    }
+  }
+}
+
+export function registerShopspotTagClick(component: ShopspotIconComponent) {
+  if (component.getMode() !== "expanded") {
+    return
+  }
+
+  const shopspotTags = component.querySelectorAll<HTMLElement>(".fs-tag")
+
+  if (!shopspotTags.length) {
+    return
+  }
+
+  shopspotTags.forEach(element => registerShopspotItemClickHandler(element, component))
+}
+
+
+
+================================================
+File: shopspots/templates/shopspot-icon.template.tsx
+================================================
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import { Sdk } from "@stackla/widget-utils"
+import { ShopspotBaseComponent } from "../components/shopspot-base.component"
+
+export default async (sdk: Sdk, component: ShopspotBaseComponent) => {
+  const tileId = component.getTileId()
+  const shopspots = await sdk.getShopspotsFromTile(tileId)
+
+  if (!shopspots.length) {
+    return <></>
+  }
+
+  return (
+    <>
+      {shopspots.map(shopspot => {
+        const [xCoord, yCoord] = shopspot.coords
+
+        return (
+          <div
+            class="fs-tag"
+            data-tag-id={shopspot.tag.id}
+            style={{
+              left: `${xCoord}%`,
+              top: `${yCoord}%`,
+              cursor: "pointer"
+            }}>
+            <div class={`tooltip tag-${shopspot.tag.id}`}>{shopspot.tag.tag}</div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+
+
+================================================
+File: tags/index.ts
+================================================
+import TagsComponent from "./tags.component"
+
+export default TagsComponent
+
+
+
+================================================
+File: tags/tags-swiper.loader.ts
+================================================
+import { initializeSwiper } from "@stackla/widget-utils/extensions/swiper"
+import { SwiperType } from "@stackla/widget-utils/types"
+
+export function initializeSwiperForTags(
+  id: string,
+  widgetSelector: HTMLElement,
+  navArrows: boolean,
+  inlineTileSize: string
+) {
+  if (!widgetSelector) {
+    return
+  }
+
+  initializeSwiper({
+    id,
+    mode: "tags",
+    widgetSelector: widgetSelector,
+    prevButton: "swiper-tags-button-prev",
+    nextButton: "swiper-tags-button-next",
+    paramsOverrides: {
+      slidesPerView: "auto",
+      spaceBetween: inlineTileSize === "small" ? 10 : 5,
+      nested: true,
+      grabCursor: true,
+      ...(!navArrows && { navigation: {} }),
+      breakpointsBase: "container",
+      on: {
+        beforeInit: (swiper: SwiperType) => {
+          swiper.slideToLoop(0, 0, false)
+        }
+      }
+    }
+  })
+}
+
+
+
+================================================
+File: tags/tags.component.ts
+================================================
+import { Sdk } from "@stackla/widget-utils"
+import StaticComponent from "../static.component"
+import { initializeSwiperForTags } from "./tags-swiper.loader"
+import { TagsTemplate } from "./tags.template"
+
+declare const sdk: Sdk
+
+export default class TagsComponent extends StaticComponent {
+  constructor() {
+    super("tile-tags")
+  }
+
+  static override get observedAttributes() {
+    // navigation-arrows applicable only when mode is "swiper"
+    return ["tile-id", "mode", "navigation-arrows", "context", "theme", "prev-icon", "next-icon"]
+  }
+
+  get tile() {
+    const tileId = this.getAttribute("tile-id")
+    return tileId ? sdk.getTileById(tileId) : undefined
+  }
+
+  get mode() {
+    return this.getAttribute("mode") || "simple"
+  }
+
+  get theme() {
+    return this.getAttribute("theme") || "light"
+  }
+
+  get prevIcon() {
+    const iconByTheme = this.theme === "light" ? "icon-prev" : "icon-prev-white"
+    return this.getAttribute("prev-icon") || iconByTheme
+  }
+
+  get nextIcon() {
+    const iconByTheme = this.theme === "light" ? "icon-next" : "icon-next-white"
+    return this.getAttribute("next-icon") || iconByTheme
+  }
+
+  get clickable() {
+    return this.getAttribute("clickable") || "true"
+  }
+
+  /**
+   * This attribute is only applicable when mode is "swiper"
+   * Specifies if navigation arrows for swiper to be rendered
+   */
+  get arrows() {
+    const arrowsFlag = this.getAttribute("navigation-arrows") === "true"
+    return this.mode === "swiper" ? arrowsFlag : false
+  }
+
+  /**
+   * Use to generate unique identifier for the swiper component.
+   * Without this value, swiper component configuration for tags could overlap
+   */
+  get context() {
+    const value = this.getAttribute("context")
+    return value ? `${value}-` : ""
+  }
+
+  public disconnectedCallback() {
+    this.innerHTML = ""
+  }
+
+  public captureFirstLoad() {
+    const arrowRight = this.querySelector<HTMLElement>(".swiper-tags-button-next")
+    const arrowLeft = this.querySelector<HTMLElement>(".swiper-tags-button-prev")
+
+    const observer = new MutationObserver(() => {
+      this.updateMask()
+    })
+
+    if (arrowLeft) {
+      observer.observe(arrowLeft, {
+        attributes: true,
+        attributeFilter: ["class"],
+        childList: false,
+        characterData: false
+      })
+    }
+
+    if (arrowRight) {
+      observer.observe(arrowRight, {
+        attributes: true,
+        attributeFilter: ["class"],
+        childList: false,
+        characterData: false
+      })
+    }
+  }
+
+  public updateMask() {
+    const arrowRight = this.querySelector<HTMLElement>(".swiper-tags-button-next")
+    const arrowLeft = this.querySelector<HTMLElement>(".swiper-tags-button-prev")
+    const container = this.querySelector<HTMLElement>(".swiper-tags")
+
+    if (!container) return
+
+    container.className = container.className.replace(/mask-\w+/g, "").trim()
+
+    if (
+      arrowLeft &&
+      arrowRight &&
+      !arrowLeft.classList.contains("swiper-button-disabled") &&
+      !arrowRight.classList.contains("swiper-button-disabled")
+    ) {
+      container.classList.add("mask-both")
+      return
+    }
+
+    if (arrowRight && !arrowRight.classList.contains("swiper-button-disabled")) {
+      container.classList.add("mask-right")
+      return
+    }
+
+    if (arrowLeft && !arrowLeft.classList.contains("swiper-button-disabled")) {
+      container.classList.add("mask-left")
+      return
+    }
+
+    container.classList.add("mask-right")
+    return
+  }
+
+  public override async connectedCallback() {
+    if (this.innerHTML != "") {
+      return
+    }
+
+    const arrowRight = this.querySelector<HTMLElement>(".swiper-tags-button-next")
+    const arrowLeft = this.querySelector<HTMLElement>(".swiper-tags-button-prev")
+
+    this.setRenderHTML(TagsTemplate)
+
+    const style = sdk.getStyleConfig()
+    const { inline_tile_size } = style
+
+    this.setAttribute("variation", inline_tile_size)
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+    await super.connectedCallback()
+
+    const tileId = this.getAttribute("tile-id")
+    const swiperTags = this.querySelector<HTMLElement>(".swiper-tags")
+
+    if (tileId && swiperTags && this.mode === "swiper") {
+      initializeSwiperForTags(`${this.context}tags-${tileId}`, swiperTags, this.arrows, inline_tile_size)
+    }
+
+    this.captureFirstLoad()
+    this.updateMask()
+    arrowRight?.addEventListener("click", this.updateMask)
+    arrowLeft?.addEventListener("click", this.updateMask)
+  }
+
+  public override async render() {
+    await super.render(this)
+  }
+}
+
+try {
+  customElements.define("tile-tags", TagsComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: tags/tags.template.spec.tsx
+================================================
+import { TagsTemplate, TagsSimpleTemplate, TagsSwiperTemplate } from "./tags.template"
+import { createElement, createFragment } from "@stackla/widget-utils/libs"
+import { Tile } from "@stackla/widget-utils"
+import TagsComponent from "./tags.component"
+
+describe("TagsTemplate", () => {
+  it("returns TagsSwiperTemplate when mode is 'swiper'", () => {
+    const component = {
+      mode: "swiper",
+      tile: { tags_extended: [{ tag: "Test Tag", custom_url: "https://example.com" }] },
+      arrows: true,
+      theme: "light",
+      prevIcon: "icon-prev",
+      nextIcon: "icon-next"
+    } as TagsComponent
+    // @ts-expect-error - No mock for sdk
+    const result = TagsTemplate({}, component)
+    expect(result).toEqual(
+      <TagsSwiperTemplate
+        tile={component.tile as Tile}
+        navArrows={component.arrows}
+        prevIcon="icon-prev"
+        nextIcon="icon-next"
+      />
+    )
+  })
+
+  it("returns TagsSimpleTemplate when mode is not 'swiper'", () => {
+    const component = {
+      mode: "simple",
+      tile: { tags_extended: [{ tag: "Test Tag", custom_url: "https://example.com" }] }
+    } as TagsComponent
+    // @ts-expect-error - No mock for sdk
+    const result = TagsTemplate({}, component)
+    expect(result).toEqual(<TagsSimpleTemplate tile={component.tile as Tile} />)
+  })
+})
+
+describe("TagsSimpleTemplate", () => {
+  it("returns tags correctly", () => {
+    const tile = {
+      tags_extended: [
+        { tag: "Tag 1", custom_url: "https://example.com/1", publicly_visible: 1 },
+        { tag: "Tag 2", custom_url: "https://example.com/2", publicly_visible: 1 }
+      ]
+    } as Tile
+    const result = TagsSimpleTemplate({ tile })
+    expect(result).toEqual(
+      <>
+        <div class="tile-tags-wapper">
+          <div class="tile-tags">
+            {tile.tags_extended?.map(tag =>
+              tag.publicly_visible ? (
+                <div class="tile-tag">
+                  <a href={tag.custom_url ?? "#"}>
+                    <span class="tag-title">{tag.tag}</span>
+                  </a>
+                </div>
+              ) : null
+            )}
+          </div>
+        </div>
+      </>
+    )
+  })
+})
+
+describe("TagsSwiperTemplate", () => {
+  it("returns tags and navigation buttons correctly", () => {
+    const tile = {
+      tags_extended: [
+        { tag: "Tag 1", custom_url: "https://example.com/1" },
+        { tag: "Tag 2", custom_url: "https://example.com/2" }
+      ]
+    } as Tile
+    const result = TagsSwiperTemplate({ tile, navArrows: true, prevIcon: "icon-prev", nextIcon: "icon-next" })
+    expect(result).toEqual(
+      <>
+        <div class="swiper-tags-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon icon-prev`} />
+        </div>
+        <div class="swiper swiper-tags">
+          <div class="swiper-tags-wrapper swiper-wrapper">
+            {tile.tags_extended?.map(tag =>
+              tag.publicly_visible ? (
+                <div class="tile-tag">
+                  <a href={tag.custom_url ?? "#"}>
+                    <span class="tag-title">{tag.tag}</span>
+                  </a>
+                </div>
+              ) : null
+            )}
+          </div>
+        </div>
+        <div class="swiper-tags-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon icon-next`} />
+        </div>
+      </>
+    )
+  })
+
+  it("applies correct icon classes for light theme", () => {
+    const tile = {
+      tags_extended: [{ tag: "Tag 1", custom_url: "https://example.com/1" }]
+    } as Tile
+    const lightComponent = {
+      mode: "swiper",
+      tile: { tags_extended: [{ tag: "Tag 1", custom_url: "https://example.com/1" }] },
+      arrows: true,
+      theme: "light",
+      prevIcon: "icon-prev",
+      nextIcon: "icon-next"
+    } as TagsComponent
+    // @ts-expect-error - No mock for sdk
+    const resultLight = TagsTemplate({}, lightComponent)
+    expect(resultLight).toEqual(
+      <>
+        <div class="swiper-tags-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon icon-prev`} />
+        </div>
+        <div class="swiper swiper-tags">
+          <div class="swiper-tags-wrapper swiper-wrapper">
+            {tile.tags_extended?.map(tag =>
+              tag.publicly_visible ? (
+                <div class="tile-tag">
+                  <a href={tag.custom_url ?? "#"}>
+                    <span class="tag-title">{tag.tag}</span>
+                  </a>
+                </div>
+              ) : null
+            )}
+          </div>
+        </div>
+        <div class="swiper-tags-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon icon-next`} />
+        </div>
+      </>
+    )
+  })
+
+  it("applies correct icon classes for dark theme", () => {
+    const tile = {
+      tags_extended: [{ tag: "Tag 1", custom_url: "https://example.com" }]
+    } as Tile
+    const darkComponent = {
+      mode: "swiper",
+      tile: { tags_extended: [{ tag: "Tag 1", custom_url: "https://example.com" }] },
+      arrows: true,
+      theme: "dark",
+      prevIcon: "icon-prev-white",
+      nextIcon: "icon-next-white"
+    } as TagsComponent
+    // @ts-expect-error - No mock for sdk
+    const resultDark = TagsTemplate({}, darkComponent)
+    expect(resultDark).toEqual(
+      <>
+        <div class="swiper-tags-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon icon-prev-white`} />
+        </div>
+        <div class="swiper swiper-tags">
+          <div class="swiper-tags-wrapper swiper-wrapper">
+            {tile.tags_extended?.map(tag =>
+              tag.publicly_visible ? (
+                <div class="tile-tag">
+                  <a href={tag.custom_url ?? "#"}>
+                    <span class="tag-title">{tag.tag}</span>
+                  </a>
+                </div>
+              ) : null
+            )}
+          </div>
+        </div>
+        <div class="swiper-tags-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon icon-next-white`} />
+        </div>
+      </>
+    )
+  })
+
+  it("overrides theme based icons with the supplied icons", () => {
+    const tile = {
+      tags_extended: [{ tag: "Tag 1", custom_url: "https://example.com/1" }]
+    } as Tile
+    const iconOverrideComponent = {
+      mode: "swiper",
+      tile: { tags_extended: [{ tag: "Tag 1", custom_url: "https://example.com/1" }] },
+      arrows: true,
+      theme: "light",
+      prevIcon: "icon-prev-white",
+      nextIcon: "icon-next-white"
+    } as TagsComponent
+    // @ts-expect-error - No mock for sdk
+    const resultOverride = TagsTemplate({}, iconOverrideComponent)
+    expect(resultOverride).toEqual(
+      <>
+        <div class="swiper-tags-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon icon-prev-white`} />
+        </div>
+        <div class="swiper swiper-tags">
+          <div class="swiper-tags-wrapper swiper-wrapper">
+            {tile.tags_extended?.map(tag =>
+              tag.publicly_visible ? (
+                <div class="tile-tag">
+                  <a href={tag.custom_url ?? "#"}>
+                    <span class="tag-title">{tag.tag}</span>
+                  </a>
+                </div>
+              ) : null
+            )}
+          </div>
+        </div>
+        <div class="swiper-tags-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon icon-next-white`} />
+        </div>
+      </>
+    )
+  })
+})
+
+
+
+================================================
+File: tags/tags.template.tsx
+================================================
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import { Sdk, Tile } from "@stackla/widget-utils"
+import TagsComponent from "./tags.component"
+
+type SwiperTemplateProps = {
+  tile: Tile
+  navArrows: boolean
+  prevIcon: string
+  nextIcon: string
+  clickable?: string
+}
+
+export function TagsTemplate(_sdk: Sdk, component: TagsComponent) {
+  if (!component.tile) {
+    return <></>
+  }
+
+  return component.mode === "swiper" ? (
+    <TagsSwiperTemplate
+      tile={component.tile}
+      navArrows={component.arrows}
+      prevIcon={component.prevIcon}
+      nextIcon={component.nextIcon}
+      clickable={component.clickable}
+    />
+  ) : (
+    <TagsSimpleTemplate tile={component.tile} />
+  )
+}
+
+export function TagsSimpleTemplate({ tile }: { tile: Tile }) {
+  if (!tile || !tile.tags_extended || !tile.tags_extended.length) {
+    return <></>
+  }
+
+  return (
+    <>
+      <div class="tile-tags-wapper">
+        <div class="tile-tags">
+          {tile.tags_extended.map(tag => (
+            <div class="tile-tag">
+              <a href={tag.custom_url ?? "#"}>
+                <span class="tag-title">{tag.tag}</span>
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+export function TagsSwiperTemplate({ tile, navArrows, prevIcon, nextIcon, clickable = "true" }: SwiperTemplateProps) {
+  if (!tile || !tile.tags_extended || !tile.tags_extended.length) {
+    return <></>
+  }
+
+  return (
+    <>
+      {navArrows && (
+        <div class="swiper-tags-button-prev swiper-button-prev btn-lg">
+          <span class={`swiper-nav-icon ${prevIcon}`} />
+        </div>
+      )}
+      <div class="swiper swiper-tags">
+        <div class="swiper-tags-wrapper swiper-wrapper">
+          {tile.tags_extended
+            .filter(tag => tag.type == "content")
+            .map(tag =>
+              tag.publicly_visible ? (
+                <div key={tag.tag} className="tile-tag swiper-slide">
+                  <a href={tag.custom_url && clickable === "true" ? tag.custom_url : "#"}>
+                    <span className="tag-title">{tag.tag}</span>
+                  </a>
+                </div>
+              ) : null
+            )}
+        </div>
+      </div>
+      {navArrows && (
+        <div class="swiper-tags-button-next swiper-button-next btn-lg">
+          <span class={`swiper-nav-icon ${nextIcon}`} />
+        </div>
+      )}
+    </>
+  )
+}
+
+
+
+================================================
+File: tile-content/index.ts
+================================================
+import TileContentComponent from "./tile-content.component"
+
+export default TileContentComponent
+
+
+
+================================================
+File: tile-content/tile-content.component.ts
+================================================
+import { TileContentTemplate } from "./tile-content.template"
+import StaticComponent from "../static.component"
+
+const COMPONENT_NAME = "tile-content"
+
+export default class TileContentComponent extends StaticComponent {
+  private resizeObserver: ResizeObserver | undefined
+  private observedElement: HTMLDivElement | null
+  private originalContent: string | undefined
+
+  constructor() {
+    super(COMPONENT_NAME)
+    this.observedElement = null
+  }
+
+  static override get observedAttributes() {
+    return [
+      "parent",
+      "tile-id",
+      "source-id",
+      "mode",
+      "context",
+      "render-user-info",
+      "render-avatar-image",
+      "render-user-name",
+      "render-user-handle",
+      "render-description",
+      "render-caption",
+      "render-timephrase",
+      "render-share-menu",
+      "trim-description",
+      "orientiation"
+    ]
+  }
+
+  public override async connectedCallback() {
+    this.setRenderHTML(TileContentTemplate)
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+    await super.connectedCallback()
+  }
+
+  disconnectedCallback() {
+    if (this.resizeObserver && this.observedElement) {
+      this.resizeObserver.unobserve(this.observedElement)
+    }
+  }
+
+  get mode() {
+    return this.getAttribute("mode") || "light"
+  }
+
+  get context() {
+    return this.getAttribute("context") || ""
+  }
+
+  get trimDescription() {
+    return !this.getAttribute("trim-description") || this.getAttribute("trim-description") === "true"
+  }
+
+  get sourceId() {
+    return this.getAttribute("source-id") || this.getTileId()
+  }
+
+  get renderConfig() {
+    return {
+      renderUserInfo: !this.getAttribute("render-user-info") || this.getAttribute("render-user-info") === "true",
+      renderAvatarImage:
+        !this.getAttribute("render-avatar-image") || this.getAttribute("render-avatar-image") === "true",
+      renderUserName: !this.getAttribute("render-user-name") || this.getAttribute("render-user-name") === "true",
+      renderUserHandle: !this.getAttribute("render-user-handle") || this.getAttribute("render-user-handle") === "true",
+      renderDescription: !this.getAttribute("render-description") || this.getAttribute("render-description") === "true",
+      renderCaption: !this.getAttribute("render-caption") || this.getAttribute("render-caption") === "true",
+      renderTimephrase: !this.getAttribute("render-timephrase") || this.getAttribute("render-timephrase") === "true",
+      renderHeaderTimephrase: this.getAttribute("render-header-timephrase") === "true",
+      renderProductsIcon: this.getAttribute("render-products-icon") === "true",
+      renderReelIcon: this.getAttribute("render-reel-icon") === "true",
+      renderShareMenu: !this.getAttribute("render-share-menu") || this.getAttribute("render-share-menu") === "true"
+    }
+  }
+
+  get orientation() {
+    return this.getAttribute("orientiation") || "horizontal"
+  }
+
+  public override async render() {
+    await super.render(this)
+    const captionElement = this.querySelector<HTMLDivElement>(".caption")
+    if (this.trimDescription && captionElement) {
+      this.initTrimHandler(captionElement)
+    }
+  }
+
+  initTrimHandler(captionElement: HTMLDivElement) {
+    this.observedElement = captionElement
+    if (!this.supportsLineClamp()) {
+      const paragraphElement = this.observedElement?.querySelector<HTMLParagraphElement>(".caption-paragraph")
+      if (this.observedElement && paragraphElement?.textContent) {
+        this.originalContent = paragraphElement.textContent
+        this.trimeMessage(this.observedElement)
+        this.registerResizeObserver(this.observedElement, this.trimeMessage.bind(this))
+      }
+    } else {
+      this.registerResizeObserver(this.observedElement, this.calculateClampLines.bind(this))
+    }
+  }
+
+  registerResizeObserver(captionElement: HTMLDivElement, callback: (ele: HTMLDivElement) => void) {
+    this.resizeObserver = new ResizeObserver(() => requestAnimationFrame(() => callback(captionElement)))
+    this.resizeObserver.observe(captionElement)
+  }
+
+  supportsLineClamp() {
+    const checks = {
+      "-webkit-line-clamp:line-clamp": "7",
+      display: "-webkit-box",
+      "-webkit-box-orient": "vertical"
+    }
+
+    return Object.entries(checks).every(([property, value]) => {
+      if (property.includes(":")) {
+        const props = property.split(":")
+        return props.some(item => CSS.supports(item, value))
+      }
+      return CSS.supports(property, value)
+    })
+  }
+
+  trimeMessage(captionElement: HTMLDivElement) {
+    const paragraphElement = captionElement?.querySelector<HTMLParagraphElement>(".caption-paragraph")
+    if (!this.originalContent || !paragraphElement || !paragraphElement.textContent) {
+      return
+    }
+
+    let originalContentCopy = this.originalContent
+
+    while (captionElement.clientHeight < captionElement.scrollHeight) {
+      const renderedContent = originalContentCopy.split(" ")
+      originalContentCopy = renderedContent.slice(0, renderedContent.length - 2).join(" ")
+      paragraphElement.textContent = originalContentCopy
+    }
+
+    if (this.originalContent !== paragraphElement.textContent) {
+      paragraphElement.textContent = `${paragraphElement.textContent!.slice(0, -3)}...`
+    }
+  }
+
+  calculateClampLines(captionElement: HTMLDivElement) {
+    const offsetHeight = captionElement.offsetHeight
+    const lineHeight = this.getLineHeight(captionElement)
+    if (!isNaN(lineHeight)) {
+      const lines = Math.round(offsetHeight / lineHeight)
+      captionElement.style.setProperty("--lines", `${lines}`)
+    }
+  }
+
+  getLineHeight(captionElement: HTMLDivElement) {
+    const lineHeightWithUnit = getComputedStyle(captionElement).lineHeight
+    return Number(lineHeightWithUnit.replace("px", ""))
+  }
+}
+
+try {
+  customElements.define(COMPONENT_NAME, TileContentComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: tile-content/tile-content.template.tsx
+================================================
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+import { Sdk, Tile } from "@stackla/widget-utils"
+import TileContentComponent from "./tile-content.component"
+
+type RenderConfig = {
+  renderUserInfo: boolean
+  renderAvatarImage: boolean
+  renderUserName: boolean
+  renderUserHandle: boolean
+  renderDescription: boolean
+  renderCaption: boolean
+  renderTimephrase: boolean
+  renderShareMenu: boolean
+}
+
+type UserInfoTemplateProps = {
+  tile: Tile
+  renderConfig: RenderConfig
+}
+
+export function TileContentTemplate(sdk: Sdk, component: TileContentComponent) {
+  const tileId = component.getTileId()
+  const tile = sdk.getTileById(tileId)
+  const renderConfig = component.renderConfig
+  const sourceId = component.sourceId
+  const mode = component.mode
+
+  if (!tile) {
+    console.warn("No tile found")
+    return <></>
+  }
+
+  let shareMenuTimephraseWrapper = <></>
+  const shareMenu = renderConfig.renderShareMenu ? (
+    <share-menu theme={mode} tile-id={tileId} source-id={sourceId}></share-menu>
+  ) : (
+    <></>
+  )
+  if (renderConfig.renderHeaderTimephrase) {
+    shareMenuTimephraseWrapper = (
+      <div class="share-menu-timephrase-wrapper">
+        <div class="share-menu-products-icon">
+          {renderConfig.renderReelIcon && <div class="shopping-icon icon-reel"></div>}
+          {renderConfig.renderProductsIcon && <div class="shopping-icon icon-products"></div>}
+          {shareMenu}
+        </div>
+        <time-phrase source-created-at={tile.source_created_at}></time-phrase>
+      </div>
+    )
+  } else {
+    shareMenuTimephraseWrapper = shareMenu
+  }
+
+  return (
+    <>
+      <div class={`tile-content-wrapper ${component.mode} ${component.context}`}>
+        <div class="header">
+          <UserInfoTemplate tile={tile} renderConfig={renderConfig} />
+          {shareMenuTimephraseWrapper}
+        </div>
+
+        <Description tile={tile} renderConfig={renderConfig} />
+      </div>
+    </>
+  )
+}
+
+function Description({ tile, renderConfig }: { tile: Tile; renderConfig: RenderConfig }) {
+  if (!renderConfig.renderDescription) {
+    return <></>
+  }
+
+  return (
+    <div class="description">
+      {renderConfig.renderCaption && (
+        <div class="caption">
+          <div class="caption-paragraph">{tile.message}</div>
+        </div>
+      )}
+
+      {renderConfig.renderTimephrase && <time-phrase source-created-at={tile.source_created_at}></time-phrase>}
+    </div>
+  )
+}
+
+function getUsernameOrTerm(tile: Tile) {
+  return tile.user || (tile.terms && tile.terms.length ? tile.terms[0] : "")
+}
+
+function UserInfoTemplate(props: UserInfoTemplateProps) {
+  const { tile, renderConfig } = props
+  const { avatar, user, originalUrl } = tile
+
+  if (!renderConfig.renderUserInfo) {
+    return <></>
+  }
+
+  const tileAvatar =
+    renderConfig.renderAvatarImage && avatar ? (
+      <span class="avatar-wrapper">
+        <a class="avatar-link" href={originalUrl} target="_blank">
+          <img
+            loading="lazy"
+            src={avatar}
+            onerror={`this.src = "https://web-assets.stackla.com/app.stackla.com/media/images/default-avatars/default-avatar.png";`}
+          />
+        </a>
+      </span>
+    ) : (
+      <></>
+    )
+  const tileUser =
+    user || tile.terms ? (
+      <a class="user-link" href={originalUrl} target="_blank">
+        {renderConfig.renderUserName ? <span class="user-name">{getUsernameOrTerm(tile)}</span> : <></>}
+        {renderConfig.renderUserHandle && user ? <span class="user-handle">@{user}</span> : <></>}
+      </a>
+    ) : (
+      <></>
+    )
+
+  return (
+    <div class="user-info">
+      {tileAvatar}
+      {tileUser}
+    </div>
+  )
+}
+
+
+
+================================================
+File: timephrase/index.ts
+================================================
+import Timephrase from "./timephrase.component"
+
+export default Timephrase
+
+
+
+================================================
+File: timephrase/timephrase.component.ts
+================================================
+import StaticComponent from "../static.component"
+import { TimephraseTemplate } from "./timephrase.template"
+
+export default class TimephraseComponent extends StaticComponent {
+  constructor() {
+    super("time-phrase")
+  }
+
+  static override get observedAttributes() {
+    return ["source-created-at"]
+  }
+
+  public override async connectedCallback() {
+    this.setRenderHTML(TimephraseTemplate)
+    this.setAttribute("parent", this.getPlacement().getWebComponentName())
+    await super.connectedCallback()
+  }
+
+  get sourceCreatedAt() {
+    const attributeValue = this.getAttribute("source-created-at")
+    const timestamp = Number(attributeValue)
+    return attributeValue && !isNaN(timestamp) ? timestamp : undefined
+  }
+
+  public override async render() {
+    await super.render(this)
+  }
+
+  getTimephrase() {
+    if (!this.sourceCreatedAt) {
+      return "just now"
+    }
+    const now = Math.round(new Date().getTime() / 1000)
+    const then = Math.round(this.sourceCreatedAt)
+    if (isNaN(then)) {
+      return "a while ago"
+    }
+    const diff = now - then
+    let timeNumber = diff
+    let timeWord = ""
+
+    if (diff >= 2592000) {
+      timeNumber = Math.round(diff / 2592000)
+      timeWord = "month"
+    } else if (diff >= 604800) {
+      timeNumber = Math.round(diff / 604800)
+      timeWord = "week"
+    } else if (diff >= 86400) {
+      timeNumber = Math.round(diff / 86400)
+      timeWord = "day"
+    } else if (diff >= 3600) {
+      timeNumber = Math.round(diff / 3600)
+      timeWord = "hour"
+    } else if (diff >= 60) {
+      timeNumber = Math.round(diff / 60)
+      timeWord = "minute"
+    } else if (diff > 0) {
+      timeNumber = diff
+      timeWord = "second"
+    } else {
+      return "just now"
+    }
+
+    if (timeNumber !== 1) {
+      timeWord += "s"
+    }
+    return `${timeNumber} ${timeWord} ago`
+  }
+}
+
+try {
+  customElements.define("time-phrase", TimephraseComponent)
+} catch (err) {
+  // ignore multiple definitions
+}
+
+
+
+================================================
+File: timephrase/timephrase.template.tsx
+================================================
+import { Sdk } from "@stackla/widget-utils"
+import TimephraseComponent from "./timephrase.component"
+import { createElement, createFragment } from "@stackla/widget-utils/jsx"
+
+export function TimephraseTemplate(_sdk: Sdk, component: TimephraseComponent) {
+  if (!component.sourceCreatedAt) {
+    return <></>
+  }
+
+  return (
+    <>
+      <div class="tile-timephrase">
+        <div class="tile-timestamp">{component.getTimephrase()}</div>
+      </div>
+    </>
+  )
+}
+
+

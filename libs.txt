@@ -1,0 +1,741 @@
+Directory structure:
+└── libs/
+    ├── css-variables.ts
+    ├── index.ts
+    ├── jsx-html.ts
+    ├── loader.extension.ts
+    ├── tile.lib.ts
+    ├── widget.components.ts
+    ├── widget.features.ts
+    ├── widget.layout.ts
+    └── widget.utils.ts
+
+
+================================================
+File: css-variables.ts
+================================================
+import type { Features, ISdk, Style } from "../types"
+
+declare const sdk: ISdk
+
+export function getTileSize(settings?: Features["tileSizeSettings"]) {
+  const style = sdk.getStyleConfig()
+  const { inline_tile_size } = style
+
+  const tileSizes: { [key: string]: string } = {
+    small: settings?.small ?? "173px",
+    medium: settings?.medium ?? "265.5px",
+    large: settings?.large ?? "400px"
+  }
+
+  if (!inline_tile_size) {
+    return tileSizes["medium"]
+  }
+
+  return tileSizes[inline_tile_size]
+}
+
+export function getTileWidthBySizeString(sizeString: string, fallbacks?: Features["tileWidthSettings"]) {
+  const tileSizes: { [key: string]: string } = {
+    small: fallbacks?.small ?? "116.5px",
+    medium: fallbacks?.medium ?? "158px",
+    large: fallbacks?.large ?? "229px"
+  }
+
+  return tileSizes[sizeString]
+}
+
+export function getTileWidth(settings?: Features["tileWidthSettings"]) {
+  const style = sdk.getStyleConfig()
+  const { inline_tile_size } = style
+
+  if (!inline_tile_size) {
+    return getTileWidthBySizeString("medium")
+  }
+
+  return getTileWidthBySizeString(inline_tile_size, settings)
+}
+
+export function getTileSizeByWidget(tileSizeSettings?: Features["tileSizeSettings"]) {
+  const sizeWithUnit = getTileSize(tileSizeSettings)
+  const sizeUnitless = sizeWithUnit.replace("px", "")
+  return { "--tile-size": sizeWithUnit, "--tile-size-unitless": sizeUnitless }
+}
+
+export function getTileWidthByWidget(tileWidthSettings?: Features["tileWidthSettings"]) {
+  const tileWidth = getTileWidth(tileWidthSettings)
+  return { "--tile-width": tileWidth }
+}
+
+export function trimHashValuesFromObject(obj: Style): Record<keyof Style, string> {
+  return Object.entries(obj).reduce((acc: Record<string, string>, [key, value]) => {
+    acc[key] = typeof value === "string" && value.startsWith("#") ? value.replace("#", "") : value
+    return acc
+  }, {})
+}
+
+/**
+ * @description Get the CSS variables for the widget
+ * @params tileSizeSettings - Custom tile size settings, small, medium, large
+ */
+export default function getCSSVariables(features?: Partial<Features>): string {
+  const { tileSizeSettings, cssVariables, tileWidthSettings } = features || {}
+  const styles = sdk.getStyleConfig()
+  const inlineTileSettings = sdk.getInlineTileConfig()
+  const {
+    widget_background,
+    text_tile_background,
+    text_tile_link_color,
+    text_tile_user_handle_font_color,
+    shopspot_btn_background,
+    shopspot_btn_font_color,
+    cta_btn_background,
+    cta_btn_font_color,
+    cta_btn_font_size,
+    margin,
+    text_tile_font_size,
+    text_tile_user_name_font_size,
+    text_tile_user_handle_font_size,
+    shopspot_icon,
+    expanded_tile_border_radius,
+    inline_tile_border_radius,
+    text_tile_font_color,
+    text_tile_user_name_font_color
+  } = trimHashValuesFromObject(styles)
+  const { show_tags: show_tags_expanded, show_shopspots: show_shopspots_expanded } = sdk.getExpandedTileConfig()
+  const {
+    show_caption: show_caption_inline,
+    show_tags: show_tags_inline,
+    show_shopspots: show_shopspots_inline,
+    show_timestamp: show_timestamp_inline,
+    show_sharing: show_sharing_inline
+  } = inlineTileSettings
+
+  const mutatedCssVariables: { [key: string]: string } = {
+    ...cssVariables,
+    "--image-position": `top`,
+    "--widget-background": `#${widget_background}`,
+    "--inline-tile-background": `#${text_tile_background}`,
+    "--text-tile-background": `#${text_tile_background}`,
+    "--shopspot-btn-background": `#${shopspot_btn_background}`,
+    "--cta-button-background-color": `#${cta_btn_background}`,
+    "--tile-tag-background": `#D6D4D5`,
+    "--text-tile-link-color": `#${text_tile_link_color}`,
+    "--text-tile-user-handle-font-color": `#${text_tile_user_handle_font_color}`,
+    "--shopspot-btn-font-color": `#${shopspot_btn_font_color}`,
+    "--margin": `${margin ? margin : 0}px`,
+    "--text-tile-font-size": `${text_tile_font_size}px`,
+    "--text-caption-paragraph-font-size": `${text_tile_font_size || 12}px`,
+    "--text-tile-user-name-font-size": `${text_tile_user_name_font_size}px`,
+    "--text-tile-user-name-font-color": `#${text_tile_user_name_font_color}`,
+    "--text-tile-user-handle-font-size": `${text_tile_user_handle_font_size || 12}px`,
+    "--text-tile-font-color": `#${text_tile_font_color}`,
+    "--show-caption-inline": `${show_caption_inline ? "block" : "none"}`,
+    "--show-caption-inline-webkit": `${show_caption_inline ? "-webkit-box" : "none"}`,
+    "--shopspot-icon": shopspot_icon ? `url(${shopspot_icon})` : `#000`,
+    "--tags-gap": `4px`,
+    "--cta-button-font-color": `#${cta_btn_font_color}`,
+    "--cta-button-font-size": `${cta_btn_font_size}px`,
+    "--expanded-tile-border-radius": `${expanded_tile_border_radius}px`,
+    ...getTileSizeByWidget(tileSizeSettings),
+    ...getTileWidthByWidget(tileWidthSettings),
+    "--inline-tile-border-radius": `${inline_tile_border_radius}px`,
+    "--inline-tile-margin": `${margin}px`,
+    "--tags-display-inline": `${show_tags_inline ? "flex" : "none"}`,
+    "--tags-display-expanded": `${show_tags_expanded ? "flex" : "none"}`,
+    "--story-expanded-display-bottom-section": `${show_tags_expanded ? "10px" : "10px"}`,
+    "--shopspots-display-inline": `${show_shopspots_inline ? "block" : "none"}`,
+    "--shopspots-display-expanded": `${show_shopspots_expanded ? "block" : "none"}`,
+    "--timephrase-display-inline": `${show_timestamp_inline ? "flex" : "none"}`,
+    "--share-icon-display-inline": `${show_sharing_inline ? "inline-block" : "none"}`
+  }
+
+  return Object.entries(mutatedCssVariables)
+    .map(([key, value]) => `${key}: ${value};`)
+    .join("\n")
+}
+
+
+
+================================================
+File: index.ts
+================================================
+export * from "./jsx-html"
+export * from "./css-variables"
+export * from "./widget.features"
+export * from "./loader.extension"
+
+
+
+================================================
+File: jsx-html.ts
+================================================
+import type { MaybeArray } from "../types"
+
+// remaps entries in GlobalEventHandlersEventMap to their respective React style event handlers
+type GlobalEventHandlersMapping = {
+  [K in keyof GlobalEventHandlersEventMap as `on${Capitalize<K>}`]?: (event: GlobalEventHandlersEventMap[K]) => void
+}
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    type Element = HTMLElement
+    type IntrinsicElements = {
+      [key: string]: Record<string, unknown> & GlobalEventHandlersMapping
+    }
+  }
+}
+
+type Props = Record<string, unknown>
+type Type = string | ((props: Props) => HTMLElement)
+type Child = unknown
+type Children = Array<Child>
+
+const aliases: Record<string, string> = {
+  className: "class",
+  htmlFor: "for"
+}
+
+/**
+ * Create an HTML element based on the given JSX type, props and children
+ */
+export function createElement(type: Type, props: Props, ...children: Children): HTMLElement {
+  if (typeof type === "function") {
+    return children?.length ? type({ ...props, children }) : type(props)
+  }
+
+  const element = document.createElement(type)
+  applyProperties(element, props ?? {})
+  children?.forEach(child => appendChild(element, child))
+  return element
+}
+
+/**
+ * Create a HTML fragment based on the given JSX children
+ */
+export function createFragment(arg: { children: Children } | null): DocumentFragment {
+  const { children, ...props } = arg ?? { children: [] }
+  const fragment = document.createDocumentFragment()
+  Object.assign(fragment, props)
+  children?.forEach(child => appendChild(fragment, child))
+  return fragment
+}
+
+function sanitizeHtmlBasic(input: string): string {
+  const tempDiv = document.createElement("div")
+  tempDiv.innerHTML = input
+
+  // Remove all script and style tags
+  const scripts = tempDiv.querySelectorAll("script, style")
+  scripts.forEach(el => el.remove())
+
+  // Remove event handlers and dangerous attributes
+  const allElements = tempDiv.querySelectorAll("*")
+  for (const el of allElements) {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase()
+      if (name.startsWith("on") || name === "srcdoc" || (name === "href" && attr.value.startsWith("javascript:"))) {
+        el.removeAttribute(attr.name)
+      }
+    }
+  }
+
+  return tempDiv.innerHTML
+}
+
+function isEventListener(key: string, value: unknown): value is EventListener {
+  return key.startsWith("on") && typeof value === "function"
+}
+
+function applyProperties(element: HTMLElement, props: Props) {
+  Object.entries(props).forEach(([key, value]) => {
+    if (isEventListener(key, value)) {
+      element.addEventListener(key.slice(2).toLowerCase(), value)
+    } else if (key === "style") {
+      Object.assign(element.style, value)
+    } else if (key === "dangerouslySetInnerHTML") {
+      const htmlValue = value as { __html: string }
+      const sanitizedValue = sanitizeHtmlBasic(htmlValue.__html)
+      element.innerHTML = sanitizedValue
+    } else {
+      const normKey = aliases[key] ?? key
+      element.setAttribute(normKey, String(value))
+    }
+  })
+}
+
+function appendChild(element: ParentNode, child: MaybeArray<Child>) {
+  if (Array.isArray(child)) {
+    child.forEach(c => appendChild(element, c))
+  } else if (child instanceof DocumentFragment) {
+    Array.from(child.children).forEach(c => element.appendChild(c))
+  } else if (child instanceof HTMLElement) {
+    element.appendChild(child)
+  } else if (child !== undefined && child !== null && child !== false) {
+    element.appendChild(document.createTextNode(String(child)))
+  }
+}
+
+
+
+================================================
+File: loader.extension.ts
+================================================
+import { ISdk } from "../types"
+
+declare const sdk: ISdk
+
+export function enableTileContent(slide: HTMLElement) {
+  slide.querySelector(".tile-loading")?.classList.add("hidden")
+  slide.querySelector(".icon-section.hidden")?.classList.remove("hidden")
+}
+
+function enableTileImage(slide: HTMLElement) {
+  const tileImage = slide.querySelector<HTMLImageElement>(".tile-image-wrapper > img")
+  if (tileImage) {
+    if (tileImage.complete) {
+      enableTileContent(slide)
+    }
+    tileImage.onload = () => enableTileContent(slide)
+    tileImage.onerror = () => slide.remove()
+  }
+}
+
+export function enableTileImages(wrapper: HTMLElement) {
+  const elements = wrapper.querySelectorAll<HTMLElement>(".ugc-tile:has(.icon-section.hidden)")
+  elements.forEach(element => enableTileImage(element))
+}
+
+export function loadAllUnloadedTiles() {
+  const tileWrapper = sdk.querySelector(".ugc-tiles")
+  if (tileWrapper) {
+    enableTileImages(tileWrapper)
+  }
+}
+
+
+
+================================================
+File: tile.lib.ts
+================================================
+import type { ISdk } from "../"
+
+declare const sdk: ISdk
+
+export function handleTileClick(e: Event, widgetUrl: string) {
+  const clickedElement = e.target as HTMLElement
+  const clickedTile = clickedElement.closest(".ugc-tile")
+
+  if (!clickedTile) {
+    throw new Error("Failed to find clicked tile")
+  }
+
+  const tileId = clickedTile.getAttribute("data-id")
+
+  if (!tileId) {
+    throw new Error("Failed to find tile ID")
+  }
+
+  const tileData = sdk.getTileById(tileId)
+
+  if (!tileData) {
+    console.warn("Failed to find tile data in handleTileClick")
+    return
+  }
+
+  const tileLink = widgetUrl || tileData.original_url || tileData.original_link
+
+  if (tileLink) {
+    window.open(tileLink, "_blank")
+  }
+}
+
+export function getTimephrase(timestamp: number) {
+  if (!timestamp) {
+    return "just now"
+  }
+  const now = Math.round(new Date().getTime() / 1000)
+  const then = Math.round(timestamp)
+  if (isNaN(then)) {
+    return "a while ago"
+  }
+  const diff = now - then
+  let timeNumber = diff
+  let timeWord = ""
+
+  if (diff >= 2592000) {
+    timeNumber = Math.round(diff / 2592000)
+    timeWord = "month"
+  } else if (diff >= 604800) {
+    timeNumber = Math.round(diff / 604800)
+    timeWord = "week"
+  } else if (diff >= 86400) {
+    timeNumber = Math.round(diff / 86400)
+    timeWord = "day"
+  } else if (diff >= 3600) {
+    timeNumber = Math.round(diff / 3600)
+    timeWord = "hour"
+  } else if (diff >= 60) {
+    timeNumber = Math.round(diff / 60)
+    timeWord = "minute"
+  } else if (diff > 0) {
+    timeNumber = diff
+    timeWord = "second"
+  } else {
+    return "just now"
+  }
+
+  if (timeNumber !== 1) {
+    timeWord += "s"
+  }
+  return timeNumber + " " + timeWord + " ago"
+}
+
+
+
+================================================
+File: widget.components.ts
+================================================
+import type { ISdk } from "../"
+
+declare const sdk: ISdk
+
+export function loadExpandSettingComponents() {
+  const { show_shopspots, show_products, show_add_to_cart, show_carousel_grouping } = sdk.getExpandedTileConfig()
+
+  if (show_shopspots) {
+    sdk.addLoadedComponents(["shopspots"])
+  }
+
+  sdk.addLoadedComponents(["expanded-tile"])
+
+  if (show_carousel_grouping) {
+    sdk.addLoadedComponents(["carousel-grouping"])
+  }
+
+  if (show_products) {
+    sdk.addLoadedComponents(["products", "inline-products"])
+  }
+  if (show_add_to_cart) {
+    sdk.addLoadedComponents(["add-to-cart"])
+  }
+}
+
+================================================
+File: widget.features.ts
+================================================
+import {
+  EVENT_LOAD_MORE,
+  EVENT_TILE_EXPAND,
+  EVENT_TILE_EXPAND_RENDERED,
+  EVENT_TILES_UPDATED,
+  EVENT_EXPANDED_TILE_CLOSE,
+  registerDefaultClickEvents,
+  registerGenericEventListener,
+  registerShareMenuClosedListener,
+  registerShareMenuOpenedListener,
+  registerTileExpandListener,
+  type ISdk,
+  type Tile,
+  registerProductsUpdatedListener,
+  EVENT_TILES_DEPLETED
+} from "../"
+import { loadExpandSettingComponents } from "./widget.components"
+import { useInfiniteScroller } from "../hooks"
+
+import {
+  onTileClosed,
+  onTileExpand,
+  onTileRendered,
+  reduceBackgroundControlsVisibility,
+  resetBackgroundControlsVisibility
+} from "./components/expanded-tile-swiper/expanded-swiper.loader"
+import { loadProductsSwiper } from "./components/expanded-tile-swiper/products.swiper"
+
+declare const sdk: ISdk
+
+export const getNextNavigatedTile = (currentTile: Tile, enabledTiles: HTMLElement[], direction: string) => {
+  const currentIndex = enabledTiles.findIndex((tile: HTMLElement) => tile.getAttribute("data-id") === currentTile.id)
+
+  if (direction === "previous") {
+    const previousTile = getPreviousTile(enabledTiles, currentIndex)
+
+    if (!previousTile) {
+      throw new Error("Failed to find previous tile")
+    }
+
+    return previousTile.getAttribute("data-id")
+  } else if (direction === "next") {
+    const nextTile = getNextTile(enabledTiles, currentIndex)
+
+    if (!nextTile) {
+      throw new Error("Failed to find next tile")
+    }
+
+    return nextTile.getAttribute("data-id")
+  }
+
+  return null
+}
+
+export const getNextTile = (enabledTiles: HTMLElement[], currentIndex: number) => enabledTiles[currentIndex + 1]
+export const getPreviousTile = (enabledTiles: HTMLElement[], currentIndex: number) => enabledTiles[currentIndex - 1]
+
+export const arrowClickListener = (e: Event) => {
+  if (!e.target) {
+    throw new Error("Failed to find target element for arrow click listener")
+  }
+
+  const target = e.target as HTMLElement
+
+  const type = target.classList.contains("tile-arrows-left") ? "previous" : "next"
+
+  const currentTile = sdk.getTile()
+
+  if (!currentTile) {
+    throw new Error("Failed to find current tile")
+  }
+
+  const tilesAsHtml = sdk.querySelectorAll(".ugc-tile")
+
+  if (!tilesAsHtml) {
+    throw new Error("Failed to find tiles for arrow initialisation")
+  }
+
+  const tilesAsHtmlArray = Array.from(tilesAsHtml)
+
+  const tileId = getNextNavigatedTile(currentTile, tilesAsHtmlArray, type)
+
+  const tilesStore: Tile[] = sdk.getTiles()
+
+  const tileData = {
+    tileData: tilesStore.find(tile => tile.id === tileId),
+    widgetId: sdk.getWidgetId(),
+    filterId: sdk.getWidgetContainer().widgetOptions?.filter_id
+  }
+
+  sdk.triggerEvent(EVENT_EXPANDED_TILE_CLOSE)
+  sdk.triggerEvent(EVENT_TILE_EXPAND, tileData)
+}
+
+export function addAutoAddTileFeature() {
+  const { auto_refresh } = sdk.getStyleConfig()
+
+  // FIXME: Make auto_refresh boolean across the board
+  if (Boolean(auto_refresh) === true) {
+    sdk.enableAutoAddNewTiles()
+  }
+}
+
+export function loadExpandedTileFeature() {
+  const widgetContainer = sdk.getStyleConfig()
+  const { click_through_url } = widgetContainer
+
+  if (click_through_url === "[EXPAND]") {
+    loadExpandSettingComponents()
+    registerTileExpandListener(onTileExpand)
+    registerGenericEventListener(EVENT_EXPANDED_TILE_CLOSE, onTileClosed)
+    registerGenericEventListener(EVENT_TILE_EXPAND_RENDERED, onTileRendered)
+    registerShareMenuOpenedListener(reduceBackgroundControlsVisibility)
+    registerShareMenuClosedListener(resetBackgroundControlsVisibility)
+    registerProductsUpdatedListener(loadProductsSwiper)
+  } else if (click_through_url === "[ORIGINAL_URL]" || /^https?:\/\/.+/.test(click_through_url ?? "")) {
+    registerDefaultClickEvents()
+  } else if (click_through_url === "[CUSTOM]") {
+    alert("Custom URL integration Not implemented yet")
+  }
+}
+
+function loadMore() {
+  if (window.__isLoading) {
+    return
+  }
+
+  window.__isLoading = true
+
+  sdk.triggerEvent(EVENT_LOAD_MORE)
+
+  setTimeout(() => {
+    window.__isLoading = false
+  }, 500)
+}
+
+const getLoadMoreButton = () => {
+  const loadMoreComponent = sdk.querySelector("load-more")
+
+  if (!loadMoreComponent) {
+    throw new Error("Failed to find load more component")
+  }
+
+  const loadMoreButton = loadMoreComponent?.querySelector<HTMLElement>("#load-more")
+
+  if (!loadMoreButton) {
+    throw new Error("Failed to find load more button")
+  }
+
+  return loadMoreButton
+}
+
+const loadMoreWrappedWithEasedLoader = () => {
+  const loadMoreButton = getLoadMoreButton()
+  loadMoreButton.classList.add("hidden")
+  loadMore()
+}
+
+export function addLoadMoreButtonFeature() {
+  const { load_more_type } = sdk.getStyleConfig()
+  const loadMoreType = load_more_type
+
+  switch (loadMoreType) {
+    case "button":
+      attachLoadMoreButtonListener()
+
+      sdk.addEventListener(EVENT_TILES_UPDATED, () => {
+        const loadMoreButton = getLoadMoreButton()
+        loadMoreButton.classList.remove("hidden")
+      })
+
+      sdk.addEventListener(EVENT_TILES_DEPLETED, () => {
+        disableLoadMoreButtonIfExists()
+      })
+
+      break
+    case "scroll":
+      useInfiniteScroller(sdk, window)
+      break
+    case "static":
+      disableLoadMoreButtonIfExists()
+      break
+    default:
+      throw new Error("Invalid load more type")
+  }
+}
+
+export function attachLoadMoreButtonListener() {
+  const loadMoreButton = getLoadMoreButton()
+
+  loadMoreButton.onclick = loadMoreWrappedWithEasedLoader
+}
+
+export function disableLoadMoreButtonIfExists() {
+  const loadMoreButton = getLoadMoreButton()
+
+  loadMoreButton.classList.add("hidden")
+}
+
+export function loadTitle() {
+  const widgetTitle = document.createElement("p")
+  const widgetContainer = sdk.getWidgetContainer()
+  const title = widgetContainer.title
+
+  if (title) {
+    widgetTitle.innerHTML = title
+  }
+}
+
+export function waitForElm(parent: Element | ShadowRoot, targets: string[], callback: (elements: Element[]) => void) {
+  if (targets.every(it => !!parent.querySelector(it))) {
+    callback(targets.map(it => parent.querySelector(it)!))
+  }
+
+  const observer = new MutationObserver((_, observer) => {
+    if (targets.every(it => !!parent.querySelector(it))) {
+      observer.disconnect()
+      callback(targets.map(it => parent.querySelector(it)!))
+    }
+  })
+
+  observer.observe(parent, {
+    childList: true,
+    subtree: true
+  })
+}
+
+export function waitForElements(
+  parent: Element | ShadowRoot,
+  target: string,
+  callback: (elements: NodeListOf<HTMLElement>) => void
+) {
+  const elements = parent.querySelectorAll<HTMLElement>(target)
+
+  if (elements.length > 0) {
+    callback(elements)
+  }
+
+  const observer = new MutationObserver(() => {
+    const newElements = parent.querySelectorAll<HTMLElement>(target)
+    if (newElements.length > 0) {
+      callback(newElements)
+      observer.disconnect()
+    }
+  })
+
+  observer.observe(parent, {
+    childList: true,
+    subtree: true
+  })
+}
+
+export function getSdk() {
+  if (sdk) {
+    return sdk
+  }
+
+  const firstChild = document.querySelector("#ugc-widget")?.firstChild as HTMLElement
+  const tagName = firstChild?.tagName
+  const widget = window.ugc.getWidgetBySelector(tagName)
+
+  if (!widget) {
+    throw new Error(`Failed to load SDK, widget not found ${tagName}`)
+  }
+
+  return widget.sdk
+}
+
+
+
+================================================
+File: widget.layout.ts
+================================================
+import type { ISdk } from "../"
+
+declare const sdk: ISdk
+export function addCSSVariablesToPlacement(cssVariables: string) {
+  const shadowRoot = sdk.getShadowRoot()
+  const style = document.createElement("style")
+  style.innerHTML = `
+      :host {
+          ${cssVariables}
+      }`
+  shadowRoot.appendChild(style)
+}
+
+
+
+================================================
+File: widget.utils.ts
+================================================
+import { ISdk } from "../"
+
+declare const sdk: ISdk
+
+export function waitForElement(selector: string, timeout: number = 5000): Promise<Element> {
+  return new Promise((resolve, reject) => {
+    const interval = 100
+    const endTime = Date.now() + timeout
+
+    const intervalId = setInterval(() => {
+      const element = sdk.querySelector(selector)
+      if (element) {
+        clearInterval(intervalId)
+        resolve(element)
+      } else if (Date.now() > endTime) {
+        clearInterval(intervalId)
+        reject(new Error(`Element with selector "${selector}" not found within ${timeout}ms`))
+      }
+    }, interval)
+  })
+}
+
+

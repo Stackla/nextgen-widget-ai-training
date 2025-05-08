@@ -1,0 +1,152 @@
+sdk.placementPlacementSDK
+Interface PlacementSDK
+interface PlacementSDK {
+    addCSSImportUrl: (url: string) => Promise<void>;
+    addCSSToComponent: (css: string, componentName: string) => void;
+    addLoadedComponents: (components: string[]) => void;
+    addSharedCssCustomStyles: (
+        key: string,
+        content: string,
+        componentNames: string[],
+    ) => void;
+    addTemplateToComponent: (template: Template, componentName: string) => void;
+    addWidgetCustomStyles: (content: string) => void;
+    getElement: () => undefined | HTMLElement;
+    getLoadedComponents: () => string[];
+    getNodeId: () => undefined | string;
+    getShadowRoot: () => ShadowRoot;
+    getWidgetId: () => string;
+    isComponentLoaded: (component: string) => boolean;
+    loadTemplate: (templateType: string) => Promise<void>;
+}
+
+
+addCSSImportUrl
+addCSSToComponent
+addLoadedComponents
+addSharedCssCustomStyles
+addTemplateToComponent
+addWidgetCustomStyles
+getElement
+getLoadedComponents
+getNodeId
+getShadowRoot
+getWidgetId
+isComponentLoaded
+loadTemplate
+addCSSImportUrl
+addCSSImportUrl: (url: string) => Promise<void>
+Remarks
+Allows the addition of CSS at the root of the widget
+
+Example
+sdk.addCSSImportUrl('https://goog.com/component-name.css')
+Copy
+Defined in sdk.placement.ts:177
+addCSSToComponent
+addCSSToComponent: (css: string, componentName: string) => void
+Remarks
+Allows the addition of CSS to a particular component This allows for custom styling of components
+
+Example
+sdk.addCSSToComponent('.class{color: red}', 'componentName')
+Copy
+Defined in sdk.placement.ts:188
+addLoadedComponents
+addLoadedComponents: (components: string[]) => void
+Remarks
+Allow loading of local UGC components or third-party components
+
+Example
+sdk.addLoadedComponents(['shopspots']) or sdk.loadComponents(['https://goog.com/component-name.js'])
+Copy
+Defined in sdk.placement.ts:134
+addSharedCssCustomStyles
+addSharedCssCustomStyles: (
+    key: string,
+    content: string,
+    componentNames: string[],
+) => void
+Remarks
+Allows injection of css styles into all the shadow root of the widget container This avoids duplicating individual injection into each custom components Used for css styles that are shared across all the nested shadow DOMs ref: https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM#constructable_stylesheets
+
+Example
+sdk.addSharedCssCustomStyles(`span { color: red; border: 2px dotted black;}`)
+Copy
+Defined in sdk.placement.ts:169
+addTemplateToComponent
+addTemplateToComponent: (template: Template, componentName: string) => void
+Remarks
+Allows the addition of a template to a particular component This allows for templating of components
+
+Example
+sdk.addTemplateToComponent((sdk) => ``<div>${sdk.getTile()}</div>`, 'componentName')`
+Copy
+Defined in sdk.placement.ts:198
+addWidgetCustomStyles
+addWidgetCustomStyles: (content: string) => void
+Remarks
+Allows injection of css styles above the shadow DOM under placement div Used only for special cases where certain styles like @font-face don't work in shadow DOM
+
+Example
+sdk.addWidgetCustomStyles(` 
+ @font-face {
+     font-family: "MyHelvetica";
+     src: local("Helvetica Neue Bold"), local("HelveticaNeue-Bold") 
+   }`)
+Copy
+Defined in sdk.placement.ts:157
+getElement
+getElement: () => undefined | HTMLElement
+Remarks
+Get the element of the placement
+
+Defined in sdk.placement.ts:126
+getLoadedComponents
+getLoadedComponents: () => string[]
+Type declaration
+(): string[]
+Returns string[]
+Remarks
+Get loaded components
+
+Example
+sdk.getLoadedComponents() - returns ['shopspots']
+Copy
+Defined in sdk.placement.ts:143
+getNodeId
+getNodeId: () => undefined | string
+Type declaration
+(): undefined | string
+Returns undefined | string
+Remarks
+Get the node id of the placement in use. This is helpful when accessing the placement in the ugc globals
+
+Example
+const widget = window.ugc.getWidgetBySelector(sdk.getNodeId())
+Copy
+Defined in sdk.placement.ts:206
+getShadowRoot
+getShadowRoot: () => ShadowRoot
+Remarks
+Get the shadow root inside the placement
+
+Defined in sdk.placement.ts:121
+getWidgetId
+getWidgetId: () => string
+Remarks
+Get the current widget id
+
+Defined in sdk.placement.ts:116
+isComponentLoaded
+isComponentLoaded: (component: string) => boolean
+Defined in sdk.placement.ts:144
+loadTemplate
+loadTemplate: (templateType: string) => Promise<void>
+Remarks
+Load a template into the placement, i.e. carousel, quadrant, etc.
+
+Example
+sdk.loadTemplate('carousel')
+Copy
+Defined in sdk.placement.ts:214

@@ -1,0 +1,229 @@
+Interface TilesSDK
+interface TilesSDK {
+    enableAutoAddNewTiles: () => void;
+    fetchTiles: (page: number, limit: number) => Promise<Tile[]>;
+    getContentTagsFromTile: (tile: Tile) => Content[];
+    getFirstProductInTile: (tile: Tile) => undefined | Product;
+    getPage: () => number;
+    getProductTagsFromTile: (tile?: Tile) => Product[];
+    getSelectedProduct: () => undefined | Product;
+    getShopspotsFromTile: (tileId: string) => any;
+    getTile: () => undefined | Tile;
+    getTileById: (id: string) => undefined | Tile;
+    getTiles: () => Tile[];
+    hasMoreTiles: () => boolean;
+    hideTileById: (tileId: string) => Promise<void>;
+    loadTilesUntilVisibleTilesCount: () => Promise<void>;
+    searchTiles: (query: string, replaceExisting?: boolean) => void;
+    setHideBrokenTiles: (hideBrokenTiles: boolean) => void;
+    setMediaType: (mediaType: "image" | "video") => void;
+    setPreloadImages: (preloadImages: boolean) => void;
+    setTile: (tile: Tile) => void;
+    setVisibleTilesCount: (visibleTileCount: number) => void;
+    waitForTile: (tileId: string) => Promise<undefined | Tile>;
+}
+Defined in sdk.tiles.ts:116
+Properties
+P
+enableAutoAddNewTiles
+P
+fetchTiles
+P
+getContentTagsFromTile
+P
+getFirstProductInTile
+P
+getPage
+P
+getProductTagsFromTile
+P
+getSelectedProduct
+P
+getShopspotsFromTile
+P
+getTile
+P
+getTileById
+P
+getTiles
+P
+hasMoreTiles
+P
+hideTileById
+P
+loadTilesUntilVisibleTilesCount
+P
+searchTiles
+P
+setHideBrokenTiles
+P
+setMediaType
+P
+setPreloadImages
+P
+setTile
+P
+setVisibleTilesCount
+P
+waitForTile
+enableAutoAddNewTiles
+enableAutoAddNewTiles: () => void
+Remarks
+Enable or disable the auto addition of new tiles
+
+Defined in sdk.tiles.ts:182
+fetchTiles
+fetchTiles: (page: number, limit: number) => Promise<Tile[]>
+Type declaration
+(page: number, limit: number): Promise<Tile[]>
+Parameters
+page: number
+page number
+
+limit: number
+limit number
+
+Returns Promise<Tile[]>
+Promise<Tile[]>
+
+Remarks
+Fetch tiles
+
+Defined in sdk.tiles.ts:224
+getContentTagsFromTile
+getContentTagsFromTile: (tile: Tile) => Content[]
+Remarks
+Get content tags from a tile
+
+Defined in sdk.tiles.ts:121
+getFirstProductInTile
+getFirstProductInTile: (tile: Tile) => undefined | Product
+Remarks
+Get the first product in a tile
+
+Defined in sdk.tiles.ts:136
+getPage
+getPage: () => number
+Type declaration
+(): number
+Returns number
+number
+
+Remarks
+Get page
+
+Defined in sdk.tiles.ts:216
+getProductTagsFromTile
+getProductTagsFromTile: (tile?: Tile) => Product[]
+Defined in sdk.tiles.ts:226
+getSelectedProduct
+getSelectedProduct: () => undefined | Product
+Remarks
+Get selected product
+
+Defined in sdk.tiles.ts:202
+getShopspotsFromTile
+getShopspotsFromTile: (tileId: string) => any
+Defined in sdk.tiles.ts:225
+getTile
+getTile: () => undefined | Tile
+Remarks
+Get the current selected tile (expanded)
+
+Defined in sdk.tiles.ts:166
+getTileById
+getTileById: (id: string) => undefined | Tile
+Remarks
+Get a tile by its id
+
+Defined in sdk.tiles.ts:177
+getTiles
+getTiles: () => Tile[]
+Type declaration
+(): Tile[]
+Returns Tile[]
+Tile[]
+
+Remarks
+Get all tiles
+
+Defined in sdk.tiles.ts:172
+hasMoreTiles
+hasMoreTiles: () => boolean
+Remarks
+Check if more tiles are available
+
+Defined in sdk.tiles.ts:197
+hideTileById
+hideTileById: (tileId: string) => Promise<void>
+Remarks
+Hide a tile by id
+
+Defined in sdk.tiles.ts:126
+loadTilesUntilVisibleTilesCount
+loadTilesUntilVisibleTilesCount: () => Promise<void>
+Remarks
+Load tiles until visible tile count
+
+Defined in sdk.tiles.ts:192
+searchTiles
+searchTiles: (query: string, replaceExisting?: boolean) => void
+Type declaration
+(query: string, replaceExisting?: boolean): void
+Parameters
+query: string
+search query, i.e. dogs
+
+OptionalreplaceExisting: boolean
+replace existing tiles with new search results (default: true)
+
+Returns void
+Remarks
+Search tiles
+
+Defined in sdk.tiles.ts:210
+setHideBrokenTiles
+setHideBrokenTiles: (hideBrokenTiles: boolean) => void
+Remarks
+Disable or enable the removal of broken tiles This is helpful when you want to handle the removal of broken tiles yourself.
+
+Defined in sdk.tiles.ts:156
+setMediaType
+setMediaType: (mediaType: "image" | "video") => void
+Remarks
+Set the media type for the tile search
+
+Defined in sdk.tiles.ts:161
+setPreloadImages
+setPreloadImages: (preloadImages: boolean) => void
+Remarks
+Disable or enable preloading of images This is helpful when you want to handle the preloading yourself.
+
+Defined in sdk.tiles.ts:149
+setTile
+setTile: (tile: Tile) => void
+Remarks
+Set the selected tile (expanded)
+
+Defined in sdk.tiles.ts:131
+setVisibleTilesCount
+setVisibleTilesCount: (visibleTileCount: number) => void
+Remarks
+Set visible tile count
+
+Defined in sdk.tiles.ts:187
+waitForTile
+waitForTile: (tileId: string) => Promise<undefined | Tile>
+Type declaration
+(tileId: string): Promise<undefined | Tile>
+Parameters
+tileId: string
+id of the tile to wait for
+
+Returns Promise<undefined | Tile>
+Promise<Tile | undefined>
+
+Remarks
+Wait for a tile to be loaded
+
+Defined in sdk.tiles.ts:143
