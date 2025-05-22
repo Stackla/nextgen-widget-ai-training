@@ -226,4 +226,151 @@ Promise<Tile | undefined>
 Remarks
 Wait for a tile to be loaded
 
-Defined in sdk.tiles.ts:143
+sdk.widgetWidgetSDK
+Interface WidgetSDK
+interface WidgetSDK {
+    getState: (key: string) => any;
+    getWidgetContainer: () => WidgetResponse;
+    getWidgetOptions: () => WidgetOptions;
+    querySelector: <T extends Element = HTMLElement>(selector: string) => T;
+    querySelectorAll: <T extends Element = HTMLElement>(
+        selector: string,
+    ) => NodeListOf<T>;
+    setState: (key: string, value: any) => void;
+}
+Defined in sdk.widget.ts:39
+Properties
+getState
+getWidgetContainer
+getWidgetOptions
+querySelector
+querySelectorAll
+setState
+getState
+getState: (key: string) => any
+Remarks
+Get a value from a given key stored in globals
+
+Example
+sdk.getState('key')
+Copy
+Defined in sdk.widget.ts:86
+getWidgetContainer
+getWidgetContainer: () => WidgetResponse
+Remarks
+Allows the user to access the widget container
+
+Example
+sdk.getWidgetContainer()
+Copy
+Defined in sdk.widget.ts:62
+getWidgetOptions
+getWidgetOptions: () => WidgetOptions
+Allows the user to access the widget options
+
+Type declaration
+(): WidgetOptions
+Returns WidgetOptions
+Example
+sdk.getWidgetOptions()
+Copy
+Defined in sdk.widget.ts:69
+querySelector
+querySelector: <T extends Element = HTMLElement>(selector: string) => T
+Remarks
+Allows retrieval of one element inside the widget placement
+
+Example
+sdk.querySelector('.ugc-tile')
+Defined in sdk.widget.ts:47
+querySelectorAll
+querySelectorAll: <T extends Element = HTMLElement>(
+    selector: string,
+) => NodeListOf<T>
+Remarks
+Allows retrieval of elements inside the widget placement
+
+Example
+sdk.querySelectorAll('.ugc-tile')
+Defined in sdk.widget.ts:55
+setState
+setState: (key: string, value: any) => void
+Remarks
+Add a value to a given key to be stored in globals
+
+Example
+sdk.setState('key', 'value')
+Defined in sdk.widget.ts:78
+
+sdk.eventsEventsSDK
+Interface EventsSDK
+interface EventsSDK {
+    addEventListener: <T extends string>(
+        event: T,
+        callback: (event: Event | CustomEvent<any>) => void,
+        htmlSelector?: Element | NodeListOf<Element>,
+    ) => void;
+    closeExpandedTiles: () => void;
+    getEmittedEvents: () => string[];
+    getRegisteredEvents: () => string[];
+    openExpandedTiles: (tileId: string) => void;
+    triggerEvent: <T extends string>(event: T, data?: object) => void;
+}
+addEventListener
+closeExpandedTiles
+getEmittedEvents
+getRegisteredEvents
+openExpandedTiles
+triggerEvent
+addEventListener
+addEventListener: <T extends string>(
+    event: T,
+    callback: (event: Event | CustomEvent<any>) => void,
+    htmlSelector?: Element | NodeListOf<Element>,
+) => void
+Remarks
+Allows the addition of event listeners to the widget
+
+Example
+sdk.addEventListener('loadMore', (event) => console.log(event), document.querySelectorAll('.load-more'))
+Defined in sdk.events.ts:83
+closeExpandedTiles
+closeExpandedTiles: () => void
+Remarks
+Close the expanded tile This is helpful when you want to close the expanded tile programmatically
+
+Defined in sdk.events.ts:102
+getEmittedEvents
+getEmittedEvents: () => string[]
+Type declaration
+(): string[]
+Returns string[]
+returns ['moreLoad', 'lessLoad']
+Remarks
+Returns the list of events that have been emitted
+
+Example
+sdk.getEmittedEvents()
+Defined in sdk.events.ts:66
+getRegisteredEvents
+getRegisteredEvents: () => string[]
+Remarks
+Returns the list of events that have been registered
+
+Example
+sdk.getRegisteredEvents()
+Defined in sdk.events.ts:73
+openExpandedTiles
+openExpandedTiles: (tileId: string) => void
+Remarks
+Open the expanded tile This is helpful when you want to open the expanded tile programmatically
+
+Defined in sdk.events.ts:109
+triggerEvent
+triggerEvent: <T extends string>(event: T, data?: object) => void
+Remarks
+Allows particular events to be triggered to operate when a listener is called
+
+Example
+sdk.triggerEvent('loadMore', { data: 'data' })
+Defined in sdk.events.ts:96

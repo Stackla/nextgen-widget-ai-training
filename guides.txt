@@ -1,0 +1,662 @@
+# Bind your own Events
+
+* [Introduction](bind-your-own-events.md#introduction)
+* [Creating your Custom Event](bind-your-own-events.md#custom-events)
+
+## Introduction
+
+Nosto's UGC Widget SDK empowers users to feed their favorite Analytics tools with useful interaction information from their UGC Widgets based on common user behavior.
+
+These common events relate to items such as Expanding a Tile, Loading more Content, or Clicking on a Shopspot link, and are based on the areas our users have wanted to track the most.
+
+Now whilst these ‘Events’ cover the most common areas a client may wish to track, there are always scenarios where you need to track the less common areas and thus need to be able to create your events.
+
+This guide provides a few examples as to how a user can create their custom events.
+
+[Back to Top](bind-your-own-events.md#top)
+
+## Creating your Custom Event
+
+Now for this guide, we are going to focus on tracking the Left / Right arrows that are available on the Carousel Widget on the In-Line tile.
+
+![](../../.gitbook/assets/nextgen/carousel-widget.png)
+
+In this use case, we want to understand whether or not people are clicking on these buttons to see either new content or previous content.
+
+Now as these buttons aren’t offered as part of Nosto's UGC standard [Widgets Event API], we are going to create our Events by binding a click function to the CSS classes associated with these buttons (`.swiper-inline-carousel-button-prev` & `.swiper-inline-carousel-button-next`)
+
+To do this, we can take two routes.
+
+Either : 
+
+1. We append Custom JS to the code editor of the widget itself with the following contents:
+
+```
+    sdk.querySelector('.swiper-inline-carousel-button-prev').addEventListener('click', function () {
+		console.log('Click Previous');
+	});
+
+	sdk.querySelector('.swiper-inline-carousel-button-next').addEventListener('click', function () {
+		console.log('Click Next');
+	});
+
+```
+
+2. We update the widget.tsx file in the IDE with the following contents:
+
+```
+import { ISdk } from '@stackla/widget-utils':
+
+declare const sdk: ISdk;
+
+sdk.querySelector('.swiper-inline-carousel-button-prev').addEventListener('click', function () {
+	alert('inlinePrevClicked');
+});
+sdk.querySelector('.swiper-inline-carousel-button-next').addEventListener('click', function () {
+	alert('inlineNextClicked');
+});
+```
+
+Once added, we can then simply save and test.
+
+We also offer other event bindings, which can be found in the Event Listeners section of the NextGen widgets documentation. 
+
+We suggest that you familiarise yourself with these events, as they can be useful for tracking other interactions within your widgets.
+
+[Back to Top](bind-your-own-events.md#top)
+
+
+# Dynamically Specify Products to Display in Widget
+
+## Overview
+
+Nosto's UGC Social Commerce product is a very powerful resource to an eCommerce site's developer's toolkit. Not only can Nosto's UGC provide direct linking between social media content and a product (or even SKU), those same relationships can be leveraged by the eCommerce CMS or page to specify the content that should be surfaced. By modifying the embed code to specify the products, categories or brands, it is a great complement to the Filter associated with a Widget.
+
+This guide will explore how to filter the widget to be displayed in a Product, Category or Brand pages by only showing content related to those pages.
+
+## Key concepts
+
+### Dynamic Filtering
+
+Dynamic Filtering unlocks special features of Nosto's UGC, outlined in this guide. You will need to have this feature enabled to complete this guide.
+
+### Social Commerce
+
+The Social Commerce product unlocks special features of Nosto's UGC to create Product Tags and other behaviour outline in this guide.
+
+### Product Tags
+
+Like other Tag types in Nosto's UGC, they can be attached to a Tile, in either a 1-to-1 or 1-to-many fashion.
+
+### Widget
+
+Widgets that are embedded for Stacks with Dynamic Filtering enabled have the ability to have their filters augmented with specific Tags.
+
+### Filter
+
+Nosto's UGC Filters drive the content being displayed in the Widget. Dynamic Filtering features allow Tags to be specified to overwrite the Tags chosen for the Filter.
+
+### Example Application
+
+In this guide we will not be creating an application, but really just an example snippet being modified by an imaginary eCommerce system. This translates to following the pattern of a view being passed a variable containing data about the products or product groups we are interested in and the rendering of the widget.
+
+We are assuming that the Stack already has content in it that has been tagged with the relevant Product Tags and that each Product Tag has a Category and/or Brand associated to it.
+
+## The Fun Part
+
+### Getting Started
+
+In this example we will need to do the following:
+
+1. Create a Filter
+2. Create a Widget
+3. Review relevant tags
+4. Prepare embed code for Product page
+5. Prepare embed code for Category page
+6. Prepare embed code for Brand page
+
+### Create a Filter
+
+Creating a Filter in Nosto's UGC is super easy and outlined in [this Knowledgebase article](http://help.nosto.com/en/articles/5793303-how-to-create-a-filter). Assuming that we would like to only showcase product images, select the following options:
+
+* Name it "Products"
+* Set it to sort by "Latest"
+* We only want pictures, so we set the Image Type to "Image"
+
+The rest of the options can be left to default.
+
+### Create a Widget
+
+We will be using one Widget that will be customised via the eCommerce system's view. For this reason we just need one Widget and will augment its embed code to specify the product, category or brand to be used.
+
+Create a Waterfall Widget and set its filter to "Products". Save and observe the preview with your content.
+
+### Review relevant Tags
+
+To demonstrate the use of Product Tags, we assume that there are already 2 product tags that we will use for tagging with the following details:
+
+1. **Tag of type:** Product, **ID:** 101, **Name:** "Blue T-Shirt", **URL:** "http://example.com/product/blue-t-shirt", **External Product ID:** "13456743", **Category:** \["T-Shirt"], **Brand:** Nike
+2. **Tag of type:** Product, **ID:** 102, **Name:** "Black T-Shirt", **URL:** "http://example.com/product/black-t-shirt", **External Product ID:** "17456941", **Category:** \["T-Shirt"], **Brand:** Patagonia
+
+To view these details, enter the Admin Portal > Engage > Commerce.
+
+We are also assuming that content has been previously tagged with them.
+
+### Prepare embed code for Product Page
+
+There are many different ways in which eCommerce systems generate product pages and product listings. We are assuming a very simple CMS pattern that has one generic view for a product page in this case for the product "Blue T-Shirt"
+
+When deploying the embed code for a product page, products can be specified in two ways:
+
+1. To use their Visual UGC IDs: 101, 102 and 103; or
+2. To use their internal (external to Visual UGC) ID, prefixed with "ext:" which are: "ext:13456743", "ext:17456941"
+
+In the embed code the products are specified by adding a `data-tags` parameter to the code and outputting the products as a comma separated list.
+
+```html
+<div id="stackla-widget">
+    <!-- BEGIN: Your widget code -->
+    <div class='stacklafw' data-tags='ext:13456743' data-id='1234' data-hash='aabbccddeeff' data-ct='' data-ttl="30" ></div>
+    <script type='text/javascript'>
+        (async () => {
+            const widget = await import('https://widget-ui.stackla.com/core.esm.js');
+            widget.init();
+        })();
+    </script>
+    <!-- END: Your widget code -->
+</div>
+```
+
+Specifying the data string above as `ext:13456743` would result in the same output if the products were specified using the Visual UGC product tag id `101.`Visual UGC will interpret the `ext:` protocol as specifying the External Product ID and anything else as a Visual UGC Tag ID.
+
+**Note about specifying Tags:**
+
+You may specify up to 10 Tags and the Tags that you specify will overwrite any specified for the Filter. Further you can specify a combination of Product and Content Tags.
+
+### Prepare embed code for Category Page
+
+There are many different ways in which eCommerce systems generate category pages. We are assuming a very simple CMS pattern that has one generic view for a category page in this case for the category "T-Shirt"
+
+When deploying the embed code for a category page, you will need to specify the category as saved in the product tag
+
+In the embed code the categories are specified by adding a `data-categories` parameter to the code and outputting the categories as a comma separated list.
+
+```html
+<div id="stackla-widget">
+<!-- BEGIN: Your widget code -->
+<div class="stackla-widget" **_data-categories='T-Shirt'_** data-id='1234' data-hash='aabbccddeeff' data-ct='' data-ttl="30" ></div>
+    <script type="module">
+        (async () => {
+            const widget = await import('https://widget-ui.stackla.com/core.esm.js');
+            widget.init();
+        })();
+    </script>
+<!-- END: Your widget code -->
+</div>
+```
+
+Using this dynamic filter will result in the widget only showing content that was tagged with products that match the "T-Shirt" category.
+
+**Note about specifying Categories:**
+
+You may specify up to 10 Categories.
+
+### Prepare embed code for Brand Page
+
+There are many different ways in which eCommerce systems generate brand pages. We are assuming a very simple CMS pattern that has one generic view for a category page in this case for the category "Nike"
+
+When deploying the embed code for a brand page, you will need to specify the brand as saved in the product tag
+
+In the embed code the categories are specified by adding a `data-brand` parameter to the code and outputting the categories as a comma separated list.
+
+```html
+<div id="stackla-widget">
+    <div class="stackla-widget"  data-brand='Nike' data-id='1234' data-hash='aabbccddeeff' data-ct='' data-ttl="30" ></div>
+    <script type="module">
+        (async () => {
+            const widget = await import('https://widget-ui.stackla.com/core.esm.js');
+            widget.init();
+        })();
+    </script>
+</div>
+```
+
+Using this dynamic filter will result in the widget only showing content that was tagged with products that match the "Nike" brand.
+
+**Note about specifying Brands:**
+
+You may specify up to 10 Brands.
+
+# Dynamically specify what Tile to display in a Widget
+
+* [Introduction](dynamically-specify-tile-to-display-in-widget.md#introduction)
+* [Key Concepts](dynamically-specify-tile-to-display-in-widget.md#key-concepts)
+* [The Fun Part](dynamically-specify-tile-to-display-in-widget.md#fun-part)
+* [Creating a Widget](dynamically-specify-tile-to-display-in-widget.md#widget)
+* [Find a Tile ID](dynamically-specify-tile-to-display-in-widget.md#tile-id)
+* [Widget code for reference](dynamically-specify-tile-to-display-in-widget.md#embed-code)
+* [End Result](dynamically-specify-tile-to-display-in-widget.md#end-result)
+
+## Introduction
+
+Through Nosto's UGC Dynamic Filtering functionality, customers have the ability to customise the outputs of their Widgets based upon their relevant use-case by overwriting the Filter and/or the Tags associated with that Filter to generate a more relevant output.
+
+Now whilst the ability to change what content is shown at a Filter or Tag level is incredibly useful for clients attempting to generate relevant outputs for their eCommerce site or generate a personalised display via their DMP, there will of course be times where a client needs to get more granular and specific around what content they wish to display on their outputs.
+
+This is where Nosto's UGC ability to specify exactly which Content Tiles are displayed in a Widget can become extremely useful.
+
+This guide will explore a simple use-case of where a client wishes to display a single Tile in their Widget.
+
+[Back to Top](dynamically-specify-tile-to-display-in-widget.md#top)
+
+## Key Concepts
+
+### Dynamic Filtering
+
+Dynamic Filtering unlocks special features of Nosto'sNosto's UGC, outlined in this guide. You will need to have this feature enabled to complete this guide.
+
+### Widgets
+
+Widgets that are embedded for Stacks with Dynamic Filtering enabled have the ability to overwrite what Tiles are rendered in their Widgets.
+
+### Tile ID
+
+The Tile ID is a unique 24 character alphanumeric unique ID generated by Nosto's UGC for every pieces of content aggregated onto the Platform.
+
+[Back to Top](dynamically-specify-tile-to-display-in-widget.md#top)
+
+## The Fun Part
+
+In this example we will need to do the following:
+
+1. Creating a Widget
+2. Finding a Tile ID
+3. Updating the Widget Embed Code
+
+[Back to Top](dynamically-specify-tile-to-display-in-widget.md#top)
+
+## Creating the Widget
+
+Similar to our guide on [Dynamically Specifying Products to Display in a Widget](dynamically-specify-products-to-display-in-widget.md) we will only need to create one Widget for this scenario, and will simply augment its embed code to specify which Tile(s) to display.
+
+As such, simply create a Waterfall Widget, leave its filters to ‘Latest’ and Save. The preview should show you a Widget with a series of Tiles in it.
+
+[Back to Top](dynamically-specify-tile-to-display-in-widget.md#top)
+
+## Find a Tile ID
+
+There are a number of ways in which you can find a Tile’s Tile ID. Ranging from using the REST API, to Webhooks to simply viewing the Tile data in the Curate Content section of Stackla.
+
+For this guide, we are just going to collect it manually via the Curate Content section of Stackla.
+
+To source, simply find the tile you wish to get the ID for, click on the overflow menu and select ‘Data’.
+
+![](../../.gitbook/assets/screen1-1.png)
+
+This will load up the Tile Data and we can grab the ID from the Data modal. In the below example, the ID of the tile is `599e0c3de09ca7e44bf290f1`
+
+![](../../.gitbook/assets/screen2-1.png)
+
+[Back to Top](dynamically-specify-tile-to-display-in-widget.md#top)
+
+## Update the Widget Embed Code
+
+As we mentioned earlier, we will be using a default Waterfall Widget, leveraging the latest filter for this example. As such, we will be presented with embed code similar to the below:
+
+```html
+<div class="stackla-widget" data-hash="<hash>" data-id="<id>" data-ttl="30" style="width: 100%; overflow: hidden;"></div>
+<script type="module">
+    (async () => {
+        const widget = await import('https://widget-ui.teaser.stackla.com/core.esm.js');
+  		widget.init();
+    })();
+</script>
+```
+
+Now to change what content is displayed in the Widget, all we need to do is add the parameter data-tile-id to the DIV section of the embed code and then include the Tile ID(s) that we wish to render.
+
+For example, to showcase the one tile which we collected earlier, we would add `data-tile-id=”599e0c3de09ca7e44bf290f1”`, and of course if we wanted to showcase two Tiles we would simply add a comma between the Tile IDs.
+
+[Back to Top](dynamically-specify-tile-to-display-in-widget.md#top)
+
+## End Result
+
+Rendered below is the Nosto's UGC Waterfall Widget rendering the single Tile as listed in this guide:
+
+```html
+<script type="text/javascript">(function (d, id) { var t, el = d.scripts[d.scripts.length - 1].previousElementSibling; if (el) el.dataset.initTimestamp = (new Date()).getTime(); if (d.getElementById(id)) return; t = d.createElement('script'); t.src = '//assetscdn.stackla.com/media/js/widget/fluid-embed.js'; t.id = id; (d.getElementsByTagName('head')[0] || d.getElementsByTagName('body')[0]).appendChild(t); }(document, 'stackla-widget-js'));</script>
+```
+
+# How to add a title / subtitle to a widget
+
+## Overview
+
+Nosto's UGC offers the ability to create advanced customizations to your widgets to match your brand needs.
+
+In this guide, we are going explain how you can add a Title & Sub-Title directly to your widgets to ensure if a widget hides in your website because it doesn't have enough content to be displayed the entire header hides with it.
+
+Please note that this customization is currently not supported for Story widgets.
+
+## Getting Started
+
+Both IDE and Custom Code Editor require one simple change to add a Title & Sub-Title to your widgets.
+
+1) Go to your layout.hbs file (or Widget Layout in the Custom Code Editor) and add the following code to the top of your file:
+```hbs
+<div class="ugc-headline">
+  <span class="ugc-title">Get Inspired!</span>
+  <div class="ugc-widget-subtitle">See what others have to share about #mybrand</div>
+</div>
+```
+2) Save your changes and publish the widget.
+3) Go to your CSS file (or Widget CSS in the Custom Code Editor) and add the following code to style your Title & Sub-Title:
+```css
+.ugc-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.ugc-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  margin-bottom: 10px;
+}
+.ugc-widget-subtitle {
+  font-size: 16px;
+  color: #666;
+}
+```
+4) Save your changes and publish the widget.
+5) Your widget should now display a Title & Sub-Title at the top of the widget.
+
+### Result
+![](../../.gitbook/assets/nextgen/how-to-add-a-title.png)
+```
+
+
+# How to localize the load more button on widgets
+
+## Pre-Requisites
+## Overview
+
+Nosto's UGC offers the ability to create advanced customizations to your widgets to match your brand needs.
+
+In this guide, we are going explain how you can localize the Load More button when you use the same widgets in different websites/regions.
+
+Please note that this customization is currently not supported for Story widgets.
+
+## Getting Started
+
+#### Create a Widget
+
+Create a new  Widget that supports the Load More button and leave all the settings as per default.
+
+#### Localize the Load More button
+
+* Open the Custom Code editor and click Inline Tile. Under the Javascript section add the following code:
+
+```
+var tagGroup = sdk.getTagGroup();
+
+if (tagGroup && tagGroup === 'AU') {
+    sdk.querySelector('load-more #buttons #load-more').innerText = 'Load More';
+}
+if (tagGroup && tagGroup === 'FR') {
+    sdk.querySelector('load-more #buttons #load-more').innerText = 'Charger plus';
+}
+if (tagGroup && tagGroup === 'PT') {
+    sdk.querySelector('load-more #buttons #load-more').innerText = 'Carregar mais';
+}
+```
+
+* In the code above, update the tagGroup to match the different Product Feed Group Names for your account. You can find those by going to **UGC Settings > Product Feeds**.
+* Then click **Save**.
+
+####
+
+
+# Styling cross-sellers on Grid and Carousel Widgets
+
+## Overview
+
+When using Nosto Product Recommendations as cross-sellers in UGC widgets, you combine the power of social proof with recommendations to drive your conversion rate by increasing relevance and boost average order value.
+
+This guide will explore how to style the layout of how cross-sellers are displayed in widgets.
+
+## Getting Started
+
+### Tag Content with Tags
+
+Start by going to the Curate view, apply shopspots to 4 or 5 tiles and publish those tiles.
+
+### Create a Filter
+
+Creating a Filter in Nosto's UGC is really simple as outlined in [this Knowledgebase article](https://help.nosto.com/en/articles/5793303-how-do-i-create-a-filter). Assuming that we would like to only showcase content with products, select the following options:
+
+* Name it "Cross-Sellers"
+* Set it to sort by "Latest"
+* Select the filter "Shopspots" and choose the "Show Shopspots" option
+
+The rest of the options can be left to default.
+
+### Create a Widget
+
+Create a Grid or Carousel Widget and set its filter to "Cross-Sellers". Save and observe the preview with your content.
+
+### Update the Widget Expanded Tile CSS
+
+Open the Custom Code editor and click Expanded Tile. Here some examples of cross-sellers styling that you can customise:
+
+#### Color of the ribbon (e.g. Grey):
+
+```
+.stacklapopup-products-item-image-recommendation-label {
+```
+
+#### Position of the ribbon (e.g. at the bottom):
+
+```
+.stacklapopup-products-item-image-recommendation-label {
+```
+
+#### Color and Font of the Cross-Seller label (e.g. Color "white", Font "Lato, sans-serif)
+
+```
+.stacklapopup-products-item-image-recommendation-label:after {
+color: white;
+font: 400 10px/18px "Lato, sans-serif";
+}
+```
+
+#### Color, Font of the See Recommendations label (e.g. Color "#2C2C2C", Font "Lato, sans-serif)
+
+```
+.stacklapopup-products-amount-over-3:after {
+color: #2C2C2C;
+font: 400 10px/18px "Lato, sans-serif";
+}
+```
+# How to Load External JS and CSS into Widgets
+
+## Overview
+
+This article will demonstrate how to load external JavaScript and CSS into your widgets using our custom code editors.
+
+## Loading the External CSS
+
+Loading the external CSS is very straight-forward. You just need to use the CSS `@import`.
+
+### Example
+
+You can write the following code in your Custom CSS code editor to load [Bootstrap](http://getbootstrap.com) and [Font Awesome](http://fontawesome.io) libraries.
+
+```
+@import url(https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-alpha/css/bootstrap.min.css);
+@import url(https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.2/css/font-awesome.min.css);
+```
+
+[Back to Top](loading-external-js-and-css-libraries-to-widgets.md#top)
+
+## Loading the External JavaScript
+
+In order to load external Javascript files, you can utilise 
+
+```js
+sdk.addLoadedComponents(["https://google.com/bananas.js"])
+```
+
+Congratulations! You have successfully loaded external JS and CSS into your widgets.
+# Styling Widget Shopspots
+
+## Overview
+
+This article will instruct you on customizing Shopspot style in both Tiles and Expanded Tiles.
+
+## Shopspots in Tiles & Expanded Tiles
+
+You can style Shopspots in tiles via the Custom CSS tab in Nosto Admin Portal or in the IDE by utilising the SDK.
+
+### HTML Structure
+
+The structure is pretty simple. It uses `.shopspot-icon>.fs-tag` as namespace.
+
+```
+<div class="fs-tag" data-tag-id="43" style="left: 15.63%; top: 15.63%; cursor: pointer;">
+    <div class="tooltip tag-43">Tag</div>
+</div>
+```
+
+### Sample CSS
+
+Lets make our shopspots rainbow colored!
+
+Place the following code into the Custom CSS in Nosto's UGC Widget settings or in the IDE's widget.scss file.
+
+```
+shopspot-icon .fs-tag {
+    background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) !important;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+shopspot-icon .fs-tag:hover {
+    background: linear-gradient(to right, violet, indigo, blue, green, yellow, orange, red) !important;
+    transform: scale(1.2);
+    transition: all 0.3s ease;
+}
+```
+
+### Result
+![](../../.gitbook/assets/nextgen/rainbow-shopspots.png)
+
+Congratulations! You have successfully styled your shopspots in tiles.
+# Using Web Fonts in Widgets
+
+## Overview
+
+This article will instruct you on how to use web fonts from different providers such as [Google](https://www.google.com/fonts), [Typekit](https://typekit.com), [Fonts.com](http://www.fonts.com) or [Fontdeck](http://fontdeck.com).
+
+## Step 1 - Load Fonts
+
+You will need to download the font files before using them. Let's take a look at some different approaches to load fonts onto our web page.
+
+### IDE Users
+
+If you are an IDE user, you can upload your font files to any given server and use the following code to load them:
+
+
+```ts
+// widget.ts
+declare const sdk: ISdk
+import { fonts } from "./fonts"
+
+loadWidget({
+  config: {
+    fonts: fonts
+  }
+})
+```;
+
+```fonts.ts
+export const fonts = [
+  {
+    fontFamily: "HelveticaNeueLtPro",
+    src: [
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Roman.ttf", format: "truetype" }
+    ],
+    fontWeight: "normal",
+    fontStyle: "normal"
+  },
+  {
+    fontFamily: "HelveticaNeueLtPro",
+    src: [
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Md.woff2", format: "woff2" },
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Md.woff", format: "woff" }
+    ],
+    fontWeight: 500,
+    fontStyle: "normal",
+    fontDisplay: "swap"
+  },
+  {
+    fontFamily: "HelveticaNeueLtPro",
+    src: [
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Lt.woff2", format: "woff2" },
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Lt.woff", format: "woff" }
+    ],
+    fontWeight: 400,
+    fontStyle: "normal",
+    fontDisplay: "swap"
+  },
+  {
+    fontFamily: "HelveticaNeueLtPro",
+    src: [
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Bd.ttf", format: "truetype" }
+    ],
+    fontWeight: "700",
+    fontStyle: "normal"
+  },
+  {
+    fontFamily: "HelveticaNeueLtPro",
+    src: [
+      { url: "https://templates.stackla.com/assets/fonts/helvetica/HelveticaNeueLTPro-Bd.ttf", format: "truetype" }
+    ],
+    fontWeight: "bold",
+    fontStyle: "normal"
+  }
+]
+```
+
+### Non-IDE Users
+If you are a non-IDE user, you can do the following:
+
+1) Import the font in your head section:
+
+```html
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap">
+```
+2) Add the font to the CSS editor:
+
+```css
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4mxP.woff2) format('woff2');
+}
+```
+3) Apply the font to your widget:
+
+```css
+.ugc-widget {
+  font-family: 'Roboto', sans-serif;
+}
+```
+4) Save your changes and publish the widget.
+
+
+Congratulations! You have successfully added a web font to your widget. You can now use this font in your CSS styles to customize the appearance of your widget.
