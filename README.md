@@ -1,7 +1,7 @@
 # NextGen Widget AI Training
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](package.json)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
 A comprehensive training repository for building NextGen UGC (User Generated Content) widgets using Nosto's Widget SDK. This repository contains AI training materials, documentation, code examples, and component libraries for developing sophisticated, customizable UGC widgets.
 
@@ -69,7 +69,8 @@ nextgen-widget-ai-training/
 ├── types.txt              # TypeScript definitions and interfaces
 ├── widget-loader.txt      # Widget loading and initialization
 ├── widget-templates.txt   # Pre-built widget templates
-└── .gitignore            # Git ignore patterns
+├── .gitignore             # Git ignore patterns
+└── README.md              # This comprehensive documentation
 ```
 
 ## 🎨 Widget Types
@@ -168,7 +169,7 @@ Pagination and infinite scroll.
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 16+ and npm/yarn
+- Node.js 18+ (LTS) and npm/yarn
 - TypeScript knowledge
 - Basic understanding of web components
 - Familiarity with SCSS/CSS
@@ -453,7 +454,7 @@ We welcome contributions to improve the training materials and documentation:
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ---
 
