@@ -1,6 +1,4 @@
 # NextGen Widget AI Training
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
 
 A comprehensive training repository for building NextGen UGC (User Generated Content) widgets using Nosto's Widget SDK. This repository contains AI training materials, documentation, code examples, and component libraries for developing sophisticated, customizable UGC widgets.
@@ -451,10 +449,6 @@ We welcome contributions to improve the training materials and documentation:
 - Review existing examples and guides
 - Consult the API documentation
 - Contact the development team
-
-## 📄 License
-
-This project is licensed under the MIT License.
 
 ---
 
